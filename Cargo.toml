@@ -1,0 +1,28 @@
+[package]
+name = "rgmatch"
+version = "0.1.0"
+edition = "2021"
+authors = ["rgmatch-rs authors"]
+description = "Genomic region-to-gene matching tool"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+flate2 = "1"
+anyhow = "1"
+ahash = "0.8"
+indexmap = "2.13.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[[bin]]
+name = "rgmatch"
+path = "src/main.rs"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+
