@@ -76,10 +76,16 @@ fn run_golden_test(
             }
             (None, None) => break, // Both files ended
             (Some(_), None) => {
-                panic!("Output file has more lines than golden file (golden ended at line {})", line_num);
+                panic!(
+                    "Output file has more lines than golden file (golden ended at line {})",
+                    line_num
+                );
             }
             (None, Some(_)) => {
-                panic!("Golden file has more lines than output file (output ended at line {})", line_num);
+                panic!(
+                    "Golden file has more lines than output file (output ended at line {})",
+                    line_num
+                );
             }
             (Some(Err(e)), _) => {
                 panic!("Error reading output file at line {}: {}", line_num, e);

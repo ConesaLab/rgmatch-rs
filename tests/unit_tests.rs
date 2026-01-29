@@ -4,7 +4,9 @@
 //! and priority rule application.
 
 use rgmatch::config::Config;
-use rgmatch::matcher::overlap::{find_search_start_index, match_regions_to_genes, process_candidates_for_output};
+use rgmatch::matcher::overlap::{
+    find_search_start_index, match_regions_to_genes, process_candidates_for_output,
+};
 use rgmatch::matcher::rules::{apply_rules, select_transcript};
 use rgmatch::matcher::tss::{check_tss, TssExonInfo};
 use rgmatch::matcher::tts::{check_tts, TtsExonInfo};
@@ -815,14 +817,20 @@ mod test_report_level {
     #[test]
     fn test_report_level_from_str_valid() {
         assert_eq!(ReportLevel::from_str("exon"), Ok(ReportLevel::Exon));
-        assert_eq!(ReportLevel::from_str("transcript"), Ok(ReportLevel::Transcript));
+        assert_eq!(
+            ReportLevel::from_str("transcript"),
+            Ok(ReportLevel::Transcript)
+        );
         assert_eq!(ReportLevel::from_str("gene"), Ok(ReportLevel::Gene));
     }
 
     #[test]
     fn test_report_level_from_str_case_insensitive() {
         assert_eq!(ReportLevel::from_str("EXON"), Ok(ReportLevel::Exon));
-        assert_eq!(ReportLevel::from_str("Transcript"), Ok(ReportLevel::Transcript));
+        assert_eq!(
+            ReportLevel::from_str("Transcript"),
+            Ok(ReportLevel::Transcript)
+        );
         assert_eq!(ReportLevel::from_str("GENE"), Ok(ReportLevel::Gene));
         assert_eq!(ReportLevel::from_str("ExOn"), Ok(ReportLevel::Exon));
     }
@@ -956,13 +964,15 @@ mod test_overlap {
     fn test_match_regions_to_genes_basic() {
         let config = Config::default();
 
-        let regions = vec![
-            Region::new("chr1".into(), 1500, 1600, vec![]),
-        ];
+        let regions = vec![Region::new("chr1".into(), 1500, 1600, vec![])];
 
-        let genes = vec![
-            make_test_gene("G1", 1000, 2000, Strand::Positive, vec![(1000, 1200), (1400, 1800)]),
-        ];
+        let genes = vec![make_test_gene(
+            "G1",
+            1000,
+            2000,
+            Strand::Positive,
+            vec![(1000, 1200), (1400, 1800)],
+        )];
 
         let results = match_regions_to_genes(&regions, &genes, &config, 2000);
 
@@ -976,13 +986,15 @@ mod test_overlap {
     fn test_match_regions_to_genes_no_overlap() {
         let config = Config::default();
 
-        let regions = vec![
-            Region::new("chr1".into(), 100, 200, vec![]),
-        ];
+        let regions = vec![Region::new("chr1".into(), 100, 200, vec![])];
 
-        let genes = vec![
-            make_test_gene("G1", 50000, 51000, Strand::Positive, vec![(50000, 51000)]),
-        ];
+        let genes = vec![make_test_gene(
+            "G1",
+            50000,
+            51000,
+            Strand::Positive,
+            vec![(50000, 51000)],
+        )];
 
         let results = match_regions_to_genes(&regions, &genes, &config, 1000);
 
