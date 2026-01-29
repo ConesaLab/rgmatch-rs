@@ -6,8 +6,14 @@
 # More information here https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html
 # Cargo.lock
 
-# Ignore large data files
-tests/data/
+# Ignore large data files and temporary analysis outputs
+tests/data/*
+# Keep subset files for CI
+!tests/data/subset_peaks.bed
+!tests/data/subset_genome.gtf
+!tests/data/subset_golden_output_exon.txt
+!tests/data/subset_golden_output_transcript.txt
+!tests/data/subset_golden_output_gene.txt
 
 # OS-specific files
 .DS_Store
