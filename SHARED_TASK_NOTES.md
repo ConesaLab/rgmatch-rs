@@ -1,80 +1,83 @@
 # Unit Test Coverage Task Notes
 
 ## Current Status
-Unit tests increased from 168 to 226 tests (58 new tests added this iteration).
+Unit tests increased from 226 to 282 tests (56 new tests added this iteration).
 
-## Tests Added This Iteration (Iteration 7)
+## Tests Added This Iteration (Iteration 9)
 
-### TSS Extended Tests (10 tests)
-- Spanning all zones (TSS, PROMOTER, UPSTREAM)
-- Exact boundary tests (positive and negative strand)
-- Very small region (1bp)
-- Zero TSS/promoter distance handling
-- Percentage calculation accuracy
+### Gene Extended Tests (8 tests)
+- Empty transcripts handling
+- Mixed transcripts (some empty)
+- Multiple overlapping transcripts
+- calculate_size boundary behavior
+- Strand preservation
+- Debug trait
 
-### TTS Extended Tests (8 tests)
-- Entirely within TTS zone
-- Spanning TTS and DOWNSTREAM
-- Negative strand downstream handling
-- Exact boundary tests
-- Very large TTS zone
-- Percentage accuracy
-
-### Rules Extended Tests (9 tests)
-- Empty candidates handling
-- All fail thresholds fallback
-- pctg_area filter behavior
-- Multiple groups independence
-- Three-candidate merging
-- No rules match fallback
-- Exact threshold boundary
-
-### Overlap Extended Tests (9 tests)
-- find_search_start_index edge cases
-- Region completely within exon
-- Region spanning multiple exons
-- Single exon gene handling
-- Beyond distance threshold
-- Transcript/gene level processing
-- Negative strand first exon
-
-### Output Extended Tests (6 tests)
-- Metadata with newlines/whitespace
-- Special characters handling
-- Exact header output
+### Region Extended Tests (9 tests)
+- Special chromosome names (chr1_random, chrUn_gl000220)
+- Empty chromosome
 - Negative coordinates
-- Merged transcripts format
-- All strands handling
+- Zero-length regions
+- Inverted coordinates
+- Very large coordinates
+- Metadata with special characters
+- Unicode chromosome names
 
-### Parser BED Extended Tests (5 tests)
-- Whitespace handling
-- Very long lines
-- Mixed valid/invalid lines
-- Tab-only lines
-- Coordinate ordering edge cases
+### Exon Extended Tests (5 tests)
+- Exon with exon number
+- Large span length
+- Single base length
+- Negative coordinates
+- Debug trait
 
-### Parser GTF Extended Tests (7 tests)
-- Overlapping genes
-- Malformed attributes
-- CDS/UTR entries (non-exon)
-- Quoted values with spaces
-- No exon entries
-- Different sources
-- Max length multiple chroms
+### Overlap Complex Tests (7 tests)
+- Region spans entire gene
+- Exact exon match
+- Region between two genes
+- Multiple transcripts same gene
+- Gene-level merging
+- Empty input handling
+- Negative strand TSS calculation
 
-### Config Comprehensive Tests (6 tests)
-- Whitespace in rules parsing
-- All area combinations
-- Extreme values
-- Percentage value ranges
-- Report level default
-- Distance overflow prevention
+### Output Special Character Tests (7 tests)
+- Metadata with tabs
+- Metadata with newlines
+- Unicode metadata
+- Empty strings
+- Negative distances
+- All header columns
+- Tab separation verification
+
+### GTF Attribute Extended Tests (7 tests)
+- Semicolon in value
+- Spaces around quotes
+- Numeric values
+- Long values
+- Extra attributes
+- Key as prefix handling
+- Missing transcript_id
+
+### find_search_start_index Extended Tests (8 tests)
+- Exact match
+- Just before/after boundaries
+- Negative search value
+- Zero search value
+- Very large search value
+- Single gene cases
+- Duplicate start positions
+
+### Candidate Extended Tests (5 tests)
+- All area types
+- Negative percentages
+- Zero values
+- Large coordinates
+- Debug trait
 
 ## Running Tests
 ```bash
-cargo test --test unit_tests  # Unit tests (226 tests)
+cargo test --test unit_tests  # Unit tests (282 tests)
 cargo test --lib              # Library tests (55 tests)
-cargo test                    # All tests (~281 total)
+cargo test                    # All tests (~337 total, excluding integration)
 ```
 
 ## Next Steps for Coverage

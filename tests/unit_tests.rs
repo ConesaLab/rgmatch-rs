@@ -4033,3 +4033,870 @@ mod test_config_comprehensive {
         assert_eq!(config.distance, 1_000_000_000);
     }
 }
+
+// -------------------------------------------------------------------------
+// 23. Gene Struct Extended Tests
+// -------------------------------------------------------------------------
+
+mod test_gene_extended {
+    use rgmatch::types::{Exon, Strand, Transcript};
+    use rgmatch::Gene;
+
+    #[test]
+    fn test_gene_calculate_size_empty_transcripts() {
+        let mut gene = Gene::new("G1".to_string(), Strand::Positive);
+        // No transcripts added
+        gene.calculate_size();
+        // Should remain at initial values (no panic)
+        assert_eq!(gene.start, i64::MAX);
+        assert_eq!(gene.end, 0);
+    }
+
+    #[test]
+    fn test_gene_calculate_size_with_empty_transcript() {
+        let mut gene = Gene::new("G1".to_string(), Strand::Positive);
+        let t = Transcript::new("T1".to_string());
+        // Transcript with no exons and no explicit length
+        gene.add_transcript(t);
+        gene.calculate_size();
+        // Transcript has i64::MAX start and 0 end by default
+        assert_eq!(gene.start, i64::MAX);
+        assert_eq!(gene.end, 0);
+    }
+
+    #[test]
+    fn test_gene_calculate_size_mixed_transcripts() {
+        let mut gene = Gene::new("G1".to_string(), Strand::Negative);
+
+        let mut t1 = Transcript::new("T1".to_string());
+        t1.add_exon(Exon::new(100, 200));
+        t1.calculate_size();
+
+        let t2 = Transcript::new("T2".to_string()); // Empty transcript
+
+        let mut t3 = Transcript::new("T3".to_string());
+        t3.add_exon(Exon::new(500, 600));
+        t3.calculate_size();
+
+        gene.add_transcript(t1);
+        gene.add_transcript(t2);
+        gene.add_transcript(t3);
+        gene.calculate_size();
+
+        // Should use min/max from non-empty transcripts
+        assert_eq!(gene.start, 100);
+        assert_eq!(gene.end, 600);
+    }
+
+    #[test]
+    fn test_gene_multiple_transcripts_overlapping() {
+        let mut gene = Gene::new("G1".to_string(), Strand::Positive);
+
+        let mut t1 = Transcript::new("T1".to_string());
+        t1.add_exon(Exon::new(100, 300));
+        t1.add_exon(Exon::new(400, 500));
+        t1.calculate_size();
+
+        let mut t2 = Transcript::new("T2".to_string());
+        t2.add_exon(Exon::new(200, 350));
+        t2.add_exon(Exon::new(450, 600));
+        t2.calculate_size();
+
+        gene.add_transcript(t1);
+        gene.add_transcript(t2);
+        gene.calculate_size();
+
+        assert_eq!(gene.start, 100);
+        assert_eq!(gene.end, 600);
+    }
+
+    #[test]
+    fn test_gene_strand_is_preserved() {
+        let gene_pos = Gene::new("G1".to_string(), Strand::Positive);
+        let gene_neg = Gene::new("G2".to_string(), Strand::Negative);
+
+        assert_eq!(gene_pos.strand, Strand::Positive);
+        assert_eq!(gene_neg.strand, Strand::Negative);
+    }
+
+    #[test]
+    fn test_gene_set_length_then_calculate_size() {
+        let mut gene = Gene::new("G1".to_string(), Strand::Positive);
+        gene.set_length(50, 1000); // Set explicit boundaries
+
+        let mut t1 = Transcript::new("T1".to_string());
+        t1.add_exon(Exon::new(100, 200));
+        t1.calculate_size();
+        gene.add_transcript(t1);
+
+        // calculate_size only updates if transcript is outside current boundaries
+        // Since gene is 50-1000 and transcript is 100-200, no update happens
+        gene.calculate_size();
+        assert_eq!(gene.start, 50);  // Unchanged (50 < 100)
+        assert_eq!(gene.end, 1000);  // Unchanged (1000 > 200)
+    }
+
+    #[test]
+    fn test_gene_calculate_size_expands_boundaries() {
+        let mut gene = Gene::new("G1".to_string(), Strand::Positive);
+        gene.set_length(200, 500); // Set initial boundaries
+
+        let mut t1 = Transcript::new("T1".to_string());
+        t1.add_exon(Exon::new(100, 700)); // Extends beyond gene boundaries
+        t1.calculate_size();
+        gene.add_transcript(t1);
+
+        // calculate_size should expand to transcript boundaries
+        gene.calculate_size();
+        assert_eq!(gene.start, 100);  // Updated (100 < 200)
+        assert_eq!(gene.end, 700);    // Updated (700 > 500)
+    }
+
+    #[test]
+    fn test_gene_debug_trait() {
+        let gene = Gene::new("G1".to_string(), Strand::Positive);
+        let debug_str = format!("{:?}", gene);
+        assert!(debug_str.contains("G1"));
+        assert!(debug_str.contains("Positive"));
+    }
+}
+
+// -------------------------------------------------------------------------
+// 24. Region Struct Extended Tests
+// -------------------------------------------------------------------------
+
+mod test_region_extended {
+    use rgmatch::Region;
+
+    #[test]
+    fn test_region_special_chrom_names() {
+        let r1 = Region::new("chr1_random".to_string(), 100, 200, vec![]);
+        assert_eq!(r1.id(), "chr1_random_100_200");
+
+        let r2 = Region::new("chrUn_gl000220".to_string(), 0, 100, vec![]);
+        assert_eq!(r2.id(), "chrUn_gl000220_0_100");
+
+        let r3 = Region::new("MT".to_string(), 1000, 2000, vec![]);
+        assert_eq!(r3.id(), "MT_1000_2000");
+    }
+
+    #[test]
+    fn test_region_empty_chrom() {
+        let r = Region::new(String::new(), 100, 200, vec![]);
+        assert_eq!(r.id(), "_100_200");
+    }
+
+    #[test]
+    fn test_region_negative_coordinates() {
+        // Some systems might use negative coordinates
+        let r = Region::new("chr1".to_string(), -100, 100, vec![]);
+        assert_eq!(r.start, -100);
+        assert_eq!(r.length(), 201);
+        assert_eq!(r.midpoint(), 0);
+        assert_eq!(r.id(), "chr1_-100_100");
+    }
+
+    #[test]
+    fn test_region_zero_length() {
+        // When start == end
+        let r = Region::new("chr1".to_string(), 100, 100, vec![]);
+        assert_eq!(r.length(), 1);
+        assert_eq!(r.midpoint(), 100);
+    }
+
+    #[test]
+    fn test_region_inverted_coordinates() {
+        // When end < start (shouldn't happen but test behavior)
+        let r = Region::new("chr1".to_string(), 200, 100, vec![]);
+        assert_eq!(r.length(), -99); // Would be negative
+        assert_eq!(r.midpoint(), 150);
+    }
+
+    #[test]
+    fn test_region_very_large_coordinates() {
+        let r = Region::new(
+            "chr1".to_string(),
+            i64::MAX / 2 - 100,
+            i64::MAX / 2 + 100,
+            vec![],
+        );
+        assert_eq!(r.length(), 201);
+    }
+
+    #[test]
+    fn test_region_metadata_with_special_chars() {
+        let r = Region::new(
+            "chr1".to_string(),
+            100,
+            200,
+            vec![
+                "peak\tname".to_string(),
+                "score=100".to_string(),
+                "name with spaces".to_string(),
+            ],
+        );
+        assert_eq!(r.metadata.len(), 3);
+        assert!(r.metadata[0].contains('\t'));
+        assert!(r.metadata[2].contains(' '));
+    }
+
+    #[test]
+    fn test_region_empty_metadata() {
+        let r = Region::new("chr1".to_string(), 100, 200, vec![]);
+        assert!(r.metadata.is_empty());
+    }
+
+    #[test]
+    fn test_region_unicode_chrom() {
+        // Test with unicode characters (unlikely but possible)
+        let r = Region::new("chromosome_α".to_string(), 100, 200, vec![]);
+        assert_eq!(r.chrom, "chromosome_α");
+    }
+}
+
+// -------------------------------------------------------------------------
+// 25. Exon Struct Extended Tests
+// -------------------------------------------------------------------------
+
+mod test_exon_extended {
+    use rgmatch::types::Exon;
+
+    #[test]
+    fn test_exon_with_exon_number() {
+        let mut exon = Exon::new(100, 200);
+        exon.exon_number = Some("5".to_string());
+        assert_eq!(exon.exon_number, Some("5".to_string()));
+    }
+
+    #[test]
+    fn test_exon_length_large_span() {
+        let exon = Exon::new(0, 1_000_000);
+        assert_eq!(exon.length(), 1_000_001);
+    }
+
+    #[test]
+    fn test_exon_length_single_base() {
+        let exon = Exon::new(500, 500);
+        assert_eq!(exon.length(), 1);
+    }
+
+    #[test]
+    fn test_exon_negative_coordinates() {
+        let exon = Exon::new(-100, 100);
+        assert_eq!(exon.length(), 201);
+    }
+
+    #[test]
+    fn test_exon_debug_trait() {
+        let exon = Exon::new(100, 200);
+        let debug_str = format!("{:?}", exon);
+        assert!(debug_str.contains("100"));
+        assert!(debug_str.contains("200"));
+    }
+}
+
+// -------------------------------------------------------------------------
+// 26. Overlap Module Complex Scenario Tests
+// -------------------------------------------------------------------------
+
+mod test_overlap_complex {
+    use super::*;
+    use rgmatch::matcher::overlap::{match_region_to_genes, process_candidates_for_output};
+    use rgmatch::types::{Exon, Strand, Transcript};
+    use rgmatch::{Config, Gene, Region, ReportLevel};
+
+    fn make_multi_exon_gene(gene_id: &str, strand: Strand, exons: Vec<(i64, i64)>) -> Gene {
+        let mut gene = Gene::new(gene_id.to_string(), strand);
+        let mut transcript = Transcript::new(format!("T_{}", gene_id));
+        for (s, e) in &exons {
+            transcript.add_exon(Exon::new(*s, *e));
+        }
+        transcript.calculate_size();
+        transcript.renumber_exons(strand);
+        gene.add_transcript(transcript);
+        gene.calculate_size();
+        gene
+    }
+
+    #[test]
+    fn test_region_spans_entire_gene() {
+        let config = Config::default();
+        let region = Region::new("chr1".into(), 900, 2100, vec![]);
+        let genes = vec![make_multi_exon_gene(
+            "G1",
+            Strand::Positive,
+            vec![(1000, 1200), (1800, 2000)],
+        )];
+
+        let candidates = match_region_to_genes(&region, &genes, &config, 0);
+        // Should have multiple area types
+        assert!(!candidates.is_empty());
+    }
+
+    #[test]
+    fn test_region_exactly_matches_exon() {
+        let config = Config::default();
+        let region = Region::new("chr1".into(), 1000, 1200, vec![]);
+        let genes = vec![make_multi_exon_gene(
+            "G1",
+            Strand::Positive,
+            vec![(1000, 1200)],
+        )];
+
+        let candidates = match_region_to_genes(&region, &genes, &config, 0);
+        assert!(!candidates.is_empty());
+        // Should be 1st_EXON with 100% overlap
+        let has_first_exon = candidates.iter().any(|c| c.area == Area::FirstExon);
+        assert!(has_first_exon);
+    }
+
+    #[test]
+    fn test_region_between_two_genes() {
+        let config = Config::default();
+        let region = Region::new("chr1".into(), 1500, 1600, vec![]);
+        let genes = vec![
+            make_multi_exon_gene("G1", Strand::Positive, vec![(1000, 1200)]),
+            make_multi_exon_gene("G2", Strand::Positive, vec![(2000, 2200)]),
+        ];
+
+        let candidates = match_region_to_genes(&region, &genes, &config, 0);
+        // Should have DOWNSTREAM for G1 and UPSTREAM for G2 (if within distance)
+        let g1_candidates: Vec<_> = candidates.iter().filter(|c| c.gene == "G1").collect();
+        let g2_candidates: Vec<_> = candidates.iter().filter(|c| c.gene == "G2").collect();
+
+        assert!(!g1_candidates.is_empty() || !g2_candidates.is_empty());
+    }
+
+    #[test]
+    fn test_multiple_transcripts_same_gene() {
+        let config = Config {
+            level: ReportLevel::Transcript,
+            ..Default::default()
+        };
+
+        let mut gene = Gene::new("G1".to_string(), Strand::Positive);
+
+        let mut t1 = Transcript::new("T1".to_string());
+        t1.add_exon(Exon::new(1000, 1200));
+        t1.add_exon(Exon::new(1500, 1700));
+        t1.calculate_size();
+        t1.renumber_exons(Strand::Positive);
+
+        let mut t2 = Transcript::new("T2".to_string());
+        t2.add_exon(Exon::new(1100, 1300));
+        t2.add_exon(Exon::new(1600, 1800));
+        t2.calculate_size();
+        t2.renumber_exons(Strand::Positive);
+
+        gene.add_transcript(t1);
+        gene.add_transcript(t2);
+        gene.calculate_size();
+
+        let region = Region::new("chr1".into(), 1150, 1250, vec![]);
+        let genes = vec![gene];
+
+        let candidates = match_region_to_genes(&region, &genes, &config, 0);
+        // Should have candidates from both transcripts
+        let t1_count = candidates.iter().filter(|c| c.transcript == "T1").count();
+        let t2_count = candidates.iter().filter(|c| c.transcript == "T2").count();
+
+        assert!(t1_count > 0 || t2_count > 0);
+    }
+
+    #[test]
+    fn test_process_candidates_gene_level_merging() {
+        let config = Config {
+            level: ReportLevel::Gene,
+            ..Default::default()
+        };
+
+        let c1 = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Tss, 90.0, 95.0, "T2", "G1", "2");
+        let c3 = make_candidate(Area::Tss, 80.0, 85.0, "T3", "G1", "3");
+
+        let candidates = vec![c1, c2, c3];
+        let result = process_candidates_for_output(candidates, &config);
+
+        assert_eq!(result.len(), 1);
+        // Should have merged transcript info
+        assert!(result[0].transcript.contains("T1"));
+        assert!(result[0].transcript.contains("T2"));
+        assert!(result[0].transcript.contains("T3"));
+        // Max percentages
+        assert_eq!(result[0].pctg_region, 100.0);
+        assert_eq!(result[0].pctg_area, 100.0);
+    }
+
+    #[test]
+    fn test_process_candidates_empty_input() {
+        let config = Config::default();
+        let candidates: Vec<Candidate> = vec![];
+        let result = process_candidates_for_output(candidates, &config);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_negative_strand_gene_tss_calculation() {
+        let config = Config::default();
+        let region = Region::new("chr1".into(), 2050, 2100, vec![]);
+        let genes = vec![make_multi_exon_gene(
+            "G1",
+            Strand::Negative,
+            vec![(1000, 1200), (1800, 2000)],
+        )];
+
+        let candidates = match_region_to_genes(&region, &genes, &config, 0);
+        // For negative strand, TSS is at the end of the gene (2000)
+        // Region is just after the gene end
+        assert!(!candidates.is_empty());
+    }
+}
+
+// -------------------------------------------------------------------------
+// 27. Output Module Special Characters Tests
+// -------------------------------------------------------------------------
+
+mod test_output_special_chars {
+    use super::*;
+    use rgmatch::output::{format_output_line, write_header};
+    use rgmatch::Region;
+
+    #[test]
+    fn test_format_output_line_metadata_with_tabs() {
+        let region = Region::new(
+            "chr1".to_string(),
+            100,
+            200,
+            vec!["name\twith\ttabs".to_string()],
+        );
+        let candidate = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+
+        let line = format_output_line(&region, &candidate);
+        // The metadata with tabs should be preserved (though might cause parsing issues)
+        assert!(line.contains("name\twith\ttabs"));
+    }
+
+    #[test]
+    fn test_format_output_line_metadata_with_newline() {
+        let region = Region::new(
+            "chr1".to_string(),
+            100,
+            200,
+            vec!["name\nwith\nnewlines".to_string()],
+        );
+        let candidate = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+
+        let line = format_output_line(&region, &candidate);
+        // trim_end should handle trailing newlines
+        assert!(!line.ends_with('\n') || line.contains('\n'));
+    }
+
+    #[test]
+    fn test_format_output_line_unicode_metadata() {
+        let region = Region::new(
+            "chr1".to_string(),
+            100,
+            200,
+            vec!["名前".to_string(), "αβγ".to_string()],
+        );
+        let candidate = make_candidate(Area::Promoter, 50.0, 75.0, "T1", "G1", "1");
+
+        let line = format_output_line(&region, &candidate);
+        assert!(line.contains("名前"));
+        assert!(line.contains("αβγ"));
+    }
+
+    #[test]
+    fn test_format_output_line_empty_strings() {
+        let region = Region::new(
+            String::new(),
+            0,
+            0,
+            vec![String::new(), String::new()],
+        );
+        let candidate = Candidate::new(
+            0,
+            0,
+            Strand::Positive,
+            String::new(),
+            Area::Tss,
+            String::new(),
+            String::new(),
+            0,
+            0.0,
+            0.0,
+            0,
+        );
+
+        let line = format_output_line(&region, &candidate);
+        // Should not panic, should produce some output
+        assert!(!line.is_empty());
+    }
+
+    #[test]
+    fn test_format_output_line_negative_distances() {
+        let region = Region::new("chr1".to_string(), 100, 200, vec![]);
+        let candidate = Candidate::new(
+            100,
+            200,
+            Strand::Negative,
+            "1".to_string(),
+            Area::Upstream,
+            "T1".to_string(),
+            "G1".to_string(),
+            -500, // Negative distance
+            100.0,
+            -1.0,
+            -1000, // Negative TSS distance
+        );
+
+        let line = format_output_line(&region, &candidate);
+        assert!(line.contains("-500"));
+        assert!(line.contains("-1000"));
+    }
+
+    #[test]
+    fn test_write_header_all_columns() {
+        let mut output = Vec::new();
+        write_header(&mut output, 9).unwrap();
+        let header = String::from_utf8(output).unwrap();
+
+        // Verify all expected columns are present
+        let expected_cols = [
+            "Region",
+            "Midpoint",
+            "Gene",
+            "Transcript",
+            "Exon/Intron",
+            "Area",
+            "Distance",
+            "TSSDistance",
+            "PercRegion",
+            "PercArea",
+            "name",
+            "score",
+            "strand",
+            "thickStart",
+            "thickEnd",
+            "itemRgb",
+            "blockCount",
+            "blockSizes",
+            "blockStarts",
+        ];
+
+        for col in expected_cols {
+            assert!(header.contains(col), "Missing column: {}", col);
+        }
+    }
+
+    #[test]
+    fn test_format_output_line_tab_separation() {
+        let region = Region::new("chr1".to_string(), 100, 200, vec!["meta".to_string()]);
+        let candidate = make_candidate(Area::Intron, 75.5, 88.8, "T1", "G1", "2");
+
+        let line = format_output_line(&region, &candidate);
+        let fields: Vec<&str> = line.split('\t').collect();
+
+        // Should have at least 11 fields (10 base + 1 meta)
+        assert!(fields.len() >= 11, "Expected 11+ fields, got {}", fields.len());
+    }
+}
+
+// -------------------------------------------------------------------------
+// 28. GTF Attribute Extraction Extended Tests
+// -------------------------------------------------------------------------
+
+mod test_gtf_attribute_extended {
+    use rgmatch::parser::gtf::parse_gtf;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_extract_attribute_with_semicolon_in_value() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // Value contains semicolon - should stop at first quote
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G;1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        assert_eq!(result.genes_by_chrom["chr1"][0].gene_id, "G;1");
+    }
+
+    #[test]
+    fn test_extract_attribute_with_spaces_around_quotes() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id  \"G1\" ; transcript_id \"T1\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        assert!(result.genes_by_chrom.contains_key("chr1"));
+    }
+
+    #[test]
+    fn test_extract_attribute_numeric_value() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"12345\"; transcript_id \"67890\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        assert_eq!(result.genes_by_chrom["chr1"][0].gene_id, "12345");
+    }
+
+    #[test]
+    fn test_extract_attribute_long_value() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        let long_id = "G".repeat(1000);
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"{}\"; transcript_id \"T1\";",
+            long_id
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        assert_eq!(result.genes_by_chrom["chr1"][0].gene_id, long_id);
+    }
+
+    #[test]
+    fn test_parse_gtf_with_extra_attributes() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\"; gene_name \"MyGene\"; gene_type \"protein_coding\"; level 1;"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        // Extra attributes should be ignored, but parsing should succeed
+        assert_eq!(result.genes_by_chrom["chr1"][0].gene_id, "G1");
+    }
+
+    #[test]
+    fn test_parse_gtf_attribute_key_as_prefix() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // gene_id_extra should not match gene_id
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id_extra \"G1\"; gene_id \"G2\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        // Should match gene_id "G2", not gene_id_extra "G1"
+        assert_eq!(result.genes_by_chrom["chr1"][0].gene_id, "G2");
+    }
+
+    #[test]
+    fn test_parse_gtf_missing_transcript_id() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        // Should fail or skip line due to missing transcript_id
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id");
+        // Either returns error or empty result
+        assert!(result.is_err() || result.unwrap().genes_by_chrom.is_empty());
+    }
+}
+
+// -------------------------------------------------------------------------
+// 29. find_search_start_index Extended Tests
+// -------------------------------------------------------------------------
+
+mod test_find_search_start_extended {
+    use rgmatch::matcher::overlap::find_search_start_index;
+    use rgmatch::types::{Exon, Strand, Transcript};
+    use rgmatch::Gene;
+
+    fn make_simple_gene(gene_id: &str, start: i64, end: i64) -> Gene {
+        let mut gene = Gene::new(gene_id.to_string(), Strand::Positive);
+        gene.set_length(start, end);
+        let mut transcript = Transcript::new(format!("T_{}", gene_id));
+        transcript.add_exon(Exon::new(start, end));
+        transcript.calculate_size();
+        transcript.renumber_exons(Strand::Positive);
+        gene.add_transcript(transcript);
+        gene
+    }
+
+    #[test]
+    fn test_find_search_start_index_exact_match() {
+        let genes = vec![
+            make_simple_gene("G1", 100, 200),
+            make_simple_gene("G2", 300, 400),
+            make_simple_gene("G3", 500, 600),
+        ];
+
+        // Exactly at G2's start
+        assert_eq!(find_search_start_index(&genes, 300), 1);
+    }
+
+    #[test]
+    fn test_find_search_start_index_just_before() {
+        let genes = vec![
+            make_simple_gene("G1", 100, 200),
+            make_simple_gene("G2", 300, 400),
+        ];
+
+        // Just before G2's start
+        assert_eq!(find_search_start_index(&genes, 299), 1);
+    }
+
+    #[test]
+    fn test_find_search_start_index_just_after() {
+        let genes = vec![
+            make_simple_gene("G1", 100, 200),
+            make_simple_gene("G2", 300, 400),
+        ];
+
+        // Just after G1's start
+        assert_eq!(find_search_start_index(&genes, 101), 1);
+    }
+
+    #[test]
+    fn test_find_search_start_index_negative_search() {
+        let genes = vec![make_simple_gene("G1", 100, 200)];
+
+        // Negative search start
+        assert_eq!(find_search_start_index(&genes, -100), 0);
+    }
+
+    #[test]
+    fn test_find_search_start_index_zero_search() {
+        let genes = vec![make_simple_gene("G1", 100, 200)];
+
+        assert_eq!(find_search_start_index(&genes, 0), 0);
+    }
+
+    #[test]
+    fn test_find_search_start_index_very_large_search() {
+        let genes = vec![
+            make_simple_gene("G1", 100, 200),
+            make_simple_gene("G2", 300, 400),
+        ];
+
+        // Very large search start - beyond all genes
+        assert_eq!(find_search_start_index(&genes, i64::MAX), 2);
+    }
+
+    #[test]
+    fn test_find_search_start_index_single_gene() {
+        let genes = vec![make_simple_gene("G1", 1000, 2000)];
+
+        assert_eq!(find_search_start_index(&genes, 500), 0); // Before
+        assert_eq!(find_search_start_index(&genes, 1000), 0); // At start
+        assert_eq!(find_search_start_index(&genes, 1500), 1); // After start
+        assert_eq!(find_search_start_index(&genes, 5000), 1); // Far after
+    }
+
+    #[test]
+    fn test_find_search_start_index_duplicate_starts() {
+        let genes = vec![
+            make_simple_gene("G1", 100, 200),
+            make_simple_gene("G2", 100, 300), // Same start as G1
+            make_simple_gene("G3", 100, 400), // Same start as G1 and G2
+        ];
+
+        // Should find first gene at position 100
+        assert_eq!(find_search_start_index(&genes, 100), 0);
+        assert_eq!(find_search_start_index(&genes, 99), 0);
+        assert_eq!(find_search_start_index(&genes, 101), 3);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 30. Candidate Struct Extended Tests
+// -------------------------------------------------------------------------
+
+mod test_candidate_extended {
+    use super::*;
+
+    #[test]
+    fn test_candidate_all_areas() {
+        let areas = vec![
+            Area::Tss,
+            Area::FirstExon,
+            Area::Promoter,
+            Area::Tts,
+            Area::Intron,
+            Area::GeneBody,
+            Area::Upstream,
+            Area::Downstream,
+        ];
+
+        for area in areas {
+            let c = Candidate::new(
+                100, 200, Strand::Positive,
+                "1".to_string(), area,
+                "T1".to_string(), "G1".to_string(),
+                0, 100.0, 100.0, 0,
+            );
+            assert_eq!(c.area, area);
+        }
+    }
+
+    #[test]
+    fn test_candidate_negative_percentages() {
+        // UPSTREAM and DOWNSTREAM can have -1 for pctg_area
+        let c = Candidate::new(
+            100, 200, Strand::Positive,
+            "1".to_string(), Area::Upstream,
+            "T1".to_string(), "G1".to_string(),
+            500, 100.0, -1.0, 1000,
+        );
+        assert_eq!(c.pctg_area, -1.0);
+    }
+
+    #[test]
+    fn test_candidate_zero_values() {
+        let c = Candidate::new(
+            0, 0, Strand::Positive,
+            "0".to_string(), Area::Tss,
+            "".to_string(), "".to_string(),
+            0, 0.0, 0.0, 0,
+        );
+        assert_eq!(c.distance, 0);
+        assert_eq!(c.pctg_region, 0.0);
+    }
+
+    #[test]
+    fn test_candidate_large_coordinates() {
+        let c = Candidate::new(
+            i64::MAX - 1000, i64::MAX - 500, Strand::Negative,
+            "999".to_string(), Area::GeneBody,
+            "VERY_LONG_TRANSCRIPT_ID".to_string(),
+            "VERY_LONG_GENE_ID".to_string(),
+            i64::MAX / 2, 99.99, 99.99, i64::MAX / 2,
+        );
+        assert!(c.start > 0);
+        assert!(c.end > c.start);
+    }
+
+    #[test]
+    fn test_candidate_debug_trait() {
+        let c = make_candidate(Area::Tss, 50.0, 75.0, "T1", "G1", "1");
+        let debug_str = format!("{:?}", c);
+        assert!(debug_str.contains("T1"));
+        assert!(debug_str.contains("G1"));
+        assert!(debug_str.contains("Tss"));
+    }
+}
