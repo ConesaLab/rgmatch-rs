@@ -4132,8 +4132,8 @@ mod test_gene_extended {
         // calculate_size only updates if transcript is outside current boundaries
         // Since gene is 50-1000 and transcript is 100-200, no update happens
         gene.calculate_size();
-        assert_eq!(gene.start, 50);  // Unchanged (50 < 100)
-        assert_eq!(gene.end, 1000);  // Unchanged (1000 > 200)
+        assert_eq!(gene.start, 50); // Unchanged (50 < 100)
+        assert_eq!(gene.end, 1000); // Unchanged (1000 > 200)
     }
 
     #[test]
@@ -4148,8 +4148,8 @@ mod test_gene_extended {
 
         // calculate_size should expand to transcript boundaries
         gene.calculate_size();
-        assert_eq!(gene.start, 100);  // Updated (100 < 200)
-        assert_eq!(gene.end, 700);    // Updated (700 > 500)
+        assert_eq!(gene.start, 100); // Updated (100 < 200)
+        assert_eq!(gene.end, 700); // Updated (700 > 500)
     }
 
     #[test]
@@ -4508,12 +4508,7 @@ mod test_output_special_chars {
 
     #[test]
     fn test_format_output_line_empty_strings() {
-        let region = Region::new(
-            String::new(),
-            0,
-            0,
-            vec![String::new(), String::new()],
-        );
+        let region = Region::new(String::new(), 0, 0, vec![String::new(), String::new()]);
         let candidate = Candidate::new(
             0,
             0,
@@ -4598,7 +4593,11 @@ mod test_output_special_chars {
         let fields: Vec<&str> = line.split('\t').collect();
 
         // Should have at least 11 fields (10 base + 1 meta)
-        assert!(fields.len() >= 11, "Expected 11+ fields, got {}", fields.len());
+        assert!(
+            fields.len() >= 11,
+            "Expected 11+ fields, got {}",
+            fields.len()
+        );
     }
 }
 
@@ -4845,10 +4844,17 @@ mod test_candidate_extended {
 
         for area in areas {
             let c = Candidate::new(
-                100, 200, Strand::Positive,
-                "1".to_string(), area,
-                "T1".to_string(), "G1".to_string(),
-                0, 100.0, 100.0, 0,
+                100,
+                200,
+                Strand::Positive,
+                "1".to_string(),
+                area,
+                "T1".to_string(),
+                "G1".to_string(),
+                0,
+                100.0,
+                100.0,
+                0,
             );
             assert_eq!(c.area, area);
         }
@@ -4858,10 +4864,17 @@ mod test_candidate_extended {
     fn test_candidate_negative_percentages() {
         // UPSTREAM and DOWNSTREAM can have -1 for pctg_area
         let c = Candidate::new(
-            100, 200, Strand::Positive,
-            "1".to_string(), Area::Upstream,
-            "T1".to_string(), "G1".to_string(),
-            500, 100.0, -1.0, 1000,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Upstream,
+            "T1".to_string(),
+            "G1".to_string(),
+            500,
+            100.0,
+            -1.0,
+            1000,
         );
         assert_eq!(c.pctg_area, -1.0);
     }
@@ -4869,10 +4882,17 @@ mod test_candidate_extended {
     #[test]
     fn test_candidate_zero_values() {
         let c = Candidate::new(
-            0, 0, Strand::Positive,
-            "0".to_string(), Area::Tss,
-            "".to_string(), "".to_string(),
-            0, 0.0, 0.0, 0,
+            0,
+            0,
+            Strand::Positive,
+            "0".to_string(),
+            Area::Tss,
+            "".to_string(),
+            "".to_string(),
+            0,
+            0.0,
+            0.0,
+            0,
         );
         assert_eq!(c.distance, 0);
         assert_eq!(c.pctg_region, 0.0);
@@ -4881,11 +4901,17 @@ mod test_candidate_extended {
     #[test]
     fn test_candidate_large_coordinates() {
         let c = Candidate::new(
-            i64::MAX - 1000, i64::MAX - 500, Strand::Negative,
-            "999".to_string(), Area::GeneBody,
+            i64::MAX - 1000,
+            i64::MAX - 500,
+            Strand::Negative,
+            "999".to_string(),
+            Area::GeneBody,
             "VERY_LONG_TRANSCRIPT_ID".to_string(),
             "VERY_LONG_GENE_ID".to_string(),
-            i64::MAX / 2, 99.99, 99.99, i64::MAX / 2,
+            i64::MAX / 2,
+            99.99,
+            99.99,
+            i64::MAX / 2,
         );
         assert!(c.start > 0);
         assert!(c.end > c.start);
