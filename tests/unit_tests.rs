@@ -3300,11 +3300,7 @@ mod test_overlap_extended {
         gene
     }
 
-    fn make_multi_exon_gene(
-        gene_id: &str,
-        strand: Strand,
-        exon_coords: Vec<(i64, i64)>,
-    ) -> Gene {
+    fn make_multi_exon_gene(gene_id: &str, strand: Strand, exon_coords: Vec<(i64, i64)>) -> Gene {
         let mut gene = Gene::new(gene_id.to_string(), strand);
         let mut transcript = Transcript::new(format!("{}_T1", gene_id));
         let mut min_start = i64::MAX;
@@ -3434,12 +3430,30 @@ mod test_overlap_extended {
         config.level = ReportLevel::Exon;
 
         let c1 = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(),
-            Area::Tss, "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 100,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            100,
         );
         let c2 = Candidate::new(
-            100, 200, Strand::Positive, "2".to_string(),
-            Area::Intron, "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 100,
+            100,
+            200,
+            Strand::Positive,
+            "2".to_string(),
+            Area::Intron,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            100,
         );
 
         let candidates = vec![c1, c2];
@@ -3454,12 +3468,30 @@ mod test_overlap_extended {
         config.level = ReportLevel::Transcript;
 
         let c1 = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(),
-            Area::Tss, "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 100,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            100,
         );
         let c2 = Candidate::new(
-            100, 200, Strand::Positive, "2".to_string(),
-            Area::Intron, "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 100,
+            100,
+            200,
+            Strand::Positive,
+            "2".to_string(),
+            Area::Intron,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            100,
         );
 
         let candidates = vec![c1, c2];
@@ -3475,12 +3507,30 @@ mod test_overlap_extended {
         config.level = ReportLevel::Gene;
 
         let c1 = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(),
-            Area::Tss, "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 100,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            100,
         );
         let c2 = Candidate::new(
-            100, 200, Strand::Positive, "2".to_string(),
-            Area::Intron, "T2".to_string(), "G1".to_string(), 0, 100.0, 100.0, 100,
+            100,
+            200,
+            Strand::Positive,
+            "2".to_string(),
+            Area::Intron,
+            "T2".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            100,
         );
 
         let candidates = vec![c1, c2];
@@ -3577,11 +3627,31 @@ mod test_gtf_extended {
     #[test]
     fn test_parse_gtf_mixed_features() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "chr1\tTEST\tgene\t1000\t2000\t.\t+\t.\tgene_id \"G1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t1500\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\tCDS\t1100\t1400\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1700\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\tgene\t1000\t2000\t.\t+\t.\tgene_id \"G1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1500\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\tCDS\t1100\t1400\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1700\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3593,8 +3663,16 @@ mod test_gtf_extended {
     #[test]
     fn test_parse_gtf_invalid_strand_skipped() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t.\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t3000\t4000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t.\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t3000\t4000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3607,9 +3685,21 @@ mod test_gtf_extended {
     #[test]
     fn test_parse_gtf_multiple_transcripts_same_gene() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t1500\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T2\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1700\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T2\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1500\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T2\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1700\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T2\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3621,8 +3711,16 @@ mod test_gtf_extended {
     #[test]
     fn test_parse_gtf_max_length_calculation() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t5000\t8000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t5000\t8000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3634,8 +3732,16 @@ mod test_gtf_extended {
     fn test_parse_gtf_exon_numbering_positive_strand() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // Exons in non-sorted order
-        writeln!(temp_file, "chr1\tTEST\texon\t3000\t4000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t3000\t4000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3650,8 +3756,16 @@ mod test_gtf_extended {
     #[test]
     fn test_parse_gtf_exon_numbering_negative_strand() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t-\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t3000\t4000\t.\t-\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t-\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t3000\t4000\t.\t-\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3664,7 +3778,11 @@ mod test_gtf_extended {
     #[test]
     fn test_parse_gtf_custom_tags() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tcustom_gene \"G1\"; custom_tx \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tcustom_gene \"G1\"; custom_tx \"T1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "custom_gene", "custom_tx").unwrap();
@@ -3728,7 +3846,11 @@ mod test_bed_extended {
     fn test_parse_bed_max_metadata_columns() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // BED12 format
-        writeln!(temp_file, "chr1\t100\t200\tname\t500\t+\t100\t200\t0,0,0\t2\t50,50\t0,50").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\t100\t200\tname\t500\t+\t100\t200\t0,0,0\t2\t50,50\t0,50"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_bed(temp_file.path()).unwrap();
@@ -3742,7 +3864,11 @@ mod test_bed_extended {
     fn test_parse_bed_exceeds_max_metadata() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // More than 12 columns
-        writeln!(temp_file, "chr1\t100\t200\tc1\tc2\tc3\tc4\tc5\tc6\tc7\tc8\tc9\tc10\tc11").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\t100\t200\tc1\tc2\tc3\tc4\tc5\tc6\tc7\tc8\tc9\tc10\tc11"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_bed(temp_file.path()).unwrap();
@@ -4042,7 +4168,8 @@ mod test_config_calculations {
     fn test_parse_rules_with_mixed_valid_invalid() {
         let mut config = Config::new();
         // Mix of valid and invalid tags
-        let result = config.parse_rules("TSS,INVALID,1st_EXON,BAD,PROMOTER,TTS,INTRON,GENE_BODY,UPSTREAM");
+        let result =
+            config.parse_rules("TSS,INVALID,1st_EXON,BAD,PROMOTER,TTS,INTRON,GENE_BODY,UPSTREAM");
         // Missing DOWNSTREAM, so should fail
         assert!(!result);
     }
@@ -4050,7 +4177,8 @@ mod test_config_calculations {
     #[test]
     fn test_parse_rules_exact_eight_valid() {
         let mut config = Config::new();
-        let result = config.parse_rules("DOWNSTREAM,UPSTREAM,GENE_BODY,INTRON,TTS,PROMOTER,1st_EXON,TSS");
+        let result =
+            config.parse_rules("DOWNSTREAM,UPSTREAM,GENE_BODY,INTRON,TTS,PROMOTER,1st_EXON,TSS");
         assert!(result);
         assert_eq!(config.rules.len(), 8);
         // First rule should be DOWNSTREAM
