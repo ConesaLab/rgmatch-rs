@@ -5990,7 +5990,11 @@ mod test_bed_reader_extended {
     fn test_bed_reader_windows_line_endings() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // Windows-style line endings
-        write!(temp_file, "chr1\t100\t200\tname\r\nchr2\t300\t400\tname2\r\n").unwrap();
+        write!(
+            temp_file,
+            "chr1\t100\t200\tname\r\nchr2\t300\t400\tname2\r\n"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let mut reader = BedReader::new(temp_file.path()).unwrap();
@@ -6017,7 +6021,14 @@ mod test_bed_reader_extended {
     fn test_bed_reader_multiple_reads_until_eof() {
         let mut temp_file = NamedTempFile::new().unwrap();
         for i in 0..5 {
-            writeln!(temp_file, "chr1\t{}\t{}\tregion{}", i * 100, i * 100 + 50, i).unwrap();
+            writeln!(
+                temp_file,
+                "chr1\t{}\t{}\tregion{}",
+                i * 100,
+                i * 100 + 50,
+                i
+            )
+            .unwrap();
         }
         temp_file.flush().unwrap();
 
