@@ -1131,8 +1131,8 @@ mod test_types_area {
 
 mod test_types_gene {
     use super::*;
-    use rgmatch::Gene;
     use rgmatch::types::Exon;
+    use rgmatch::Gene;
 
     #[test]
     fn test_gene_new() {
@@ -2053,7 +2053,7 @@ mod test_output {
             Area::GeneBody,
             "ENST00000000001".to_string(),
             "ENSG00000000001".to_string(),
-            1000000,  // Large distance
+            1000000, // Large distance
             50.0,
             25.0,
             5000000, // Large TSS distance
@@ -2266,7 +2266,7 @@ mod test_output {
             Area::Downstream,
             "T1".to_string(),
             "G1".to_string(),
-            -500,  // Negative distance
+            -500, // Negative distance
             50.0,
             50.0,
             -1000, // Negative TSS distance
