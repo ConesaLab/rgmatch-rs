@@ -2905,8 +2905,16 @@ mod test_tss_extended {
         let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
 
         assert!(tags.contains(&"TSS"), "Should contain TSS: {:?}", tags);
-        assert!(tags.contains(&"PROMOTER"), "Should contain PROMOTER: {:?}", tags);
-        assert!(tags.contains(&"UPSTREAM"), "Should contain UPSTREAM: {:?}", tags);
+        assert!(
+            tags.contains(&"PROMOTER"),
+            "Should contain PROMOTER: {:?}",
+            tags
+        );
+        assert!(
+            tags.contains(&"UPSTREAM"),
+            "Should contain UPSTREAM: {:?}",
+            tags
+        );
     }
 
     #[test]
@@ -2935,7 +2943,10 @@ mod test_tss_extended {
         };
         let res = check_tss(799, 810, &exon, 200.0, 1300.0);
         let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
-        assert!(tags.contains(&"PROMOTER"), "Should contain PROMOTER at 201bp");
+        assert!(
+            tags.contains(&"PROMOTER"),
+            "Should contain PROMOTER at 201bp"
+        );
     }
 
     #[test]
@@ -2953,7 +2964,10 @@ mod test_tss_extended {
         // Upstream: > 3500
         let res = check_tss(3600, 3700, &exon, 200.0, 1300.0);
         let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
-        assert!(tags.contains(&"UPSTREAM"), "Should be UPSTREAM for neg strand far from end");
+        assert!(
+            tags.contains(&"UPSTREAM"),
+            "Should be UPSTREAM for neg strand far from end"
+        );
     }
 
     #[test]
@@ -3339,7 +3353,9 @@ mod test_rules_extended {
 
 mod test_overlap_extended {
     use super::*;
-    use rgmatch::matcher::overlap::{find_search_start_index, match_region_to_genes, process_candidates_for_output};
+    use rgmatch::matcher::overlap::{
+        find_search_start_index, match_region_to_genes, process_candidates_for_output,
+    };
     use rgmatch::types::Exon;
     use rgmatch::{Gene, Region};
 
@@ -3366,7 +3382,13 @@ mod test_overlap_extended {
 
     #[test]
     fn test_find_search_start_index_single_gene() {
-        let genes = vec![make_test_gene("G1", 1000, 2000, Strand::Positive, vec![(1000, 2000)])];
+        let genes = vec![make_test_gene(
+            "G1",
+            1000,
+            2000,
+            Strand::Positive,
+            vec![(1000, 2000)],
+        )];
 
         assert_eq!(find_search_start_index(&genes, 500), 0);
         assert_eq!(find_search_start_index(&genes, 1000), 0);
@@ -3427,7 +3449,11 @@ mod test_overlap_extended {
         assert!(!candidates.is_empty());
         // Should have both gene body and intron candidates
         let areas: Vec<Area> = candidates.iter().map(|c| c.area).collect();
-        assert!(areas.contains(&Area::Intron) || areas.contains(&Area::GeneBody) || areas.contains(&Area::FirstExon));
+        assert!(
+            areas.contains(&Area::Intron)
+                || areas.contains(&Area::GeneBody)
+                || areas.contains(&Area::FirstExon)
+        );
     }
 
     #[test]
@@ -3446,7 +3472,11 @@ mod test_overlap_extended {
         // Region is upstream of gene
         assert!(!candidates.is_empty());
         let areas: Vec<Area> = candidates.iter().map(|c| c.area).collect();
-        assert!(areas.contains(&Area::Upstream) || areas.contains(&Area::Tss) || areas.contains(&Area::Promoter));
+        assert!(
+            areas.contains(&Area::Upstream)
+                || areas.contains(&Area::Tss)
+                || areas.contains(&Area::Promoter)
+        );
     }
 
     #[test]
@@ -3542,8 +3572,17 @@ mod test_output_extended {
             vec!["name\n".to_string(), "value\r\n".to_string()],
         );
         let candidate = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), Area::Tss,
-            "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 0,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            0,
         );
 
         let line = format_output_line(&region, &candidate);
@@ -3561,8 +3600,17 @@ mod test_output_extended {
             vec!["name;with;semicolons".to_string(), "tab\there".to_string()],
         );
         let candidate = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), Area::Intron,
-            "T1".to_string(), "G1".to_string(), 0, 50.0, 50.0, 0,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Intron,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            50.0,
+            50.0,
+            0,
         );
 
         let line = format_output_line(&region, &candidate);
@@ -3585,8 +3633,17 @@ mod test_output_extended {
         // Some BED files can have negative coordinates for edge cases
         let region = Region::new("chr1".to_string(), -100, 100, vec![]);
         let candidate = Candidate::new(
-            -100, 100, Strand::Negative, "1".to_string(), Area::GeneBody,
-            "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 0,
+            -100,
+            100,
+            Strand::Negative,
+            "1".to_string(),
+            Area::GeneBody,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            0,
         );
 
         let line = format_output_line(&region, &candidate);
@@ -3598,8 +3655,17 @@ mod test_output_extended {
     fn test_format_output_merged_transcripts() {
         let region = Region::new("chr1".to_string(), 100, 200, vec![]);
         let candidate = Candidate::new(
-            100, 200, Strand::Positive, "1,2,3".to_string(), Area::Tss,
-            "T1,T2,T3".to_string(), "G1".to_string(), 0, 95.5, 88.25, 0,
+            100,
+            200,
+            Strand::Positive,
+            "1,2,3".to_string(),
+            Area::Tss,
+            "T1,T2,T3".to_string(),
+            "G1".to_string(),
+            0,
+            95.5,
+            88.25,
+            0,
         );
 
         let line = format_output_line(&region, &candidate);
@@ -3615,8 +3681,17 @@ mod test_output_extended {
 
         for strand in [Strand::Positive, Strand::Negative] {
             let candidate = Candidate::new(
-                100, 200, strand, "1".to_string(), Area::Tss,
-                "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 0,
+                100,
+                200,
+                strand,
+                "1".to_string(),
+                Area::Tss,
+                "T1".to_string(),
+                "G1".to_string(),
+                0,
+                100.0,
+                100.0,
+                0,
             );
             let line = format_output_line(&region, &candidate);
             // Output should be valid regardless of strand
@@ -3727,11 +3802,13 @@ mod test_parser_gtf_extended {
         writeln!(
             temp_file,
             "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(
             temp_file,
             "chr1\tTEST\texon\t1500\t2500\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
-        ).unwrap();
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3746,12 +3823,14 @@ mod test_parser_gtf_extended {
         writeln!(
             temp_file,
             "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\" transcript_id \"T1\""
-        ).unwrap();
+        )
+        .unwrap();
         // Valid line
         writeln!(
             temp_file,
             "chr1\tTEST\texon\t2000\t2200\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
-        ).unwrap();
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3767,22 +3846,28 @@ mod test_parser_gtf_extended {
         writeln!(
             temp_file,
             "chr1\tTEST\tCDS\t1100\t1800\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(
             temp_file,
             "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(
             temp_file,
             "chr1\tTEST\tUTR\t1000\t1099\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
-        ).unwrap();
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
 
         // Should have 1 gene with 1 exon
         assert_eq!(result.genes_by_chrom["chr1"].len(), 1);
-        assert_eq!(result.genes_by_chrom["chr1"][0].transcripts[0].exons.len(), 1);
+        assert_eq!(
+            result.genes_by_chrom["chr1"][0].transcripts[0].exons.len(),
+            1
+        );
     }
 
     #[test]
@@ -3810,18 +3895,25 @@ mod test_parser_gtf_extended {
         writeln!(
             temp_file,
             "chr1\tTEST\tgene\t1000\t2000\t.\t+\t.\tgene_id \"G1\";"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(
             temp_file,
             "chr1\tTEST\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
-        ).unwrap();
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
 
         // Should handle gracefully - may or may not have gene depending on parser
         // The important thing is it doesn't crash
-        assert!(result.genes_by_chrom.is_empty() || result.genes_by_chrom["chr1"][0].transcripts[0].exons.is_empty());
+        assert!(
+            result.genes_by_chrom.is_empty()
+                || result.genes_by_chrom["chr1"][0].transcripts[0]
+                    .exons
+                    .is_empty()
+        );
     }
 
     #[test]
@@ -3830,11 +3922,13 @@ mod test_parser_gtf_extended {
         writeln!(
             temp_file,
             "chr1\tENSEMBL\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(
             temp_file,
             "chr1\tHAVANA\texon\t2000\t2200\t.\t-\t.\tgene_id \"G2\"; transcript_id \"T2\";"
-        ).unwrap();
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3849,11 +3943,13 @@ mod test_parser_gtf_extended {
         writeln!(
             temp_file,
             "chr1\tTEST\texon\t1000\t5000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(
             temp_file,
             "chr2\tTEST\texon\t100\t10000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
-        ).unwrap();
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -3875,7 +3971,9 @@ mod test_config_comprehensive {
     fn test_config_parse_rules_whitespace() {
         let mut config = Config::new();
         // Extra whitespace should be handled
-        let result = config.parse_rules(" TSS , 1st_EXON , PROMOTER , TTS , INTRON , GENE_BODY , UPSTREAM , DOWNSTREAM ");
+        let result = config.parse_rules(
+            " TSS , 1st_EXON , PROMOTER , TTS , INTRON , GENE_BODY , UPSTREAM , DOWNSTREAM ",
+        );
         // Depending on implementation, might fail with whitespace
         assert!(!result); // Current implementation is strict
     }
