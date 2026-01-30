@@ -2191,7 +2191,10 @@ mod test_bed_parser {
     fn test_get_bed_headers_partial() {
         assert_eq!(get_bed_headers(1), vec!["name"]);
         assert_eq!(get_bed_headers(2), vec!["name", "score"]);
-        assert_eq!(get_bed_headers(4), vec!["name", "score", "strand", "thickStart"]);
+        assert_eq!(
+            get_bed_headers(4),
+            vec!["name", "score", "strand", "thickStart"]
+        );
     }
 
     #[test]
@@ -2207,7 +2210,11 @@ mod test_bed_parser {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         // BED12 format with all columns
-        writeln!(temp_file, "chr1\t100\t200\tname\t500\t+\t120\t180\t255,0,0\t2\t50,50\t0,50").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\t100\t200\tname\t500\t+\t120\t180\t255,0,0\t2\t50,50\t0,50"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let mut reader = BedReader::new(temp_file.path()).unwrap();
@@ -2313,7 +2320,14 @@ mod test_bed_parser {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         for i in 0..100 {
-            writeln!(temp_file, "chr1\t{}\t{}\tregion{}", i * 100, i * 100 + 50, i).unwrap();
+            writeln!(
+                temp_file,
+                "chr1\t{}\t{}\tregion{}",
+                i * 100,
+                i * 100 + 50,
+                i
+            )
+            .unwrap();
         }
         temp_file.flush().unwrap();
 
@@ -2622,7 +2636,16 @@ mod test_config_edge_cases {
     #[test]
     fn test_config_all_fields() {
         let config = Config {
-            rules: vec![Area::Tss, Area::FirstExon, Area::Promoter, Area::Tts, Area::Intron, Area::GeneBody, Area::Upstream, Area::Downstream],
+            rules: vec![
+                Area::Tss,
+                Area::FirstExon,
+                Area::Promoter,
+                Area::Tts,
+                Area::Intron,
+                Area::GeneBody,
+                Area::Upstream,
+                Area::Downstream,
+            ],
             perc_area: 85.0,
             perc_region: 45.0,
             tss: 300.0,
@@ -2693,7 +2716,8 @@ mod test_config_edge_cases {
     #[test]
     fn test_parse_rules_reversed_order() {
         let mut config = Config::new();
-        let result = config.parse_rules("DOWNSTREAM,UPSTREAM,GENE_BODY,INTRON,TTS,PROMOTER,1st_EXON,TSS");
+        let result =
+            config.parse_rules("DOWNSTREAM,UPSTREAM,GENE_BODY,INTRON,TTS,PROMOTER,1st_EXON,TSS");
         assert!(result);
         assert_eq!(config.rules[0], Area::Downstream);
         assert_eq!(config.rules[1], Area::Upstream);
@@ -3095,7 +3119,10 @@ mod test_tss_tts_edge_cases {
                 // 100bp out of 100bp region = 100%
                 assert!(*pctg_dhs > 99.0, "pctg_dhs should be ~100%");
                 // 100bp out of 200bp TSS = 50%
-                assert!(*pctg_area >= 49.0 && *pctg_area <= 51.0, "pctg_area should be ~50%");
+                assert!(
+                    *pctg_area >= 49.0 && *pctg_area <= 51.0,
+                    "pctg_area should be ~50%"
+                );
             }
         }
     }
