@@ -19,10 +19,15 @@ tests/data/*_comparison*.txt
 tests/data/venn_data.txt
 tests/data/lines_only_in_*.txt
 
-# OS-specific files
-.DS_Store
+# Benchmark logs
+tests/logs/
+
+# OS files
+**/.DS_Store
+
+# Debug symbols
+*.pdb
 
 # Editor files
 *.swp
 *.swo
-tests/logs/bench_output.txt
