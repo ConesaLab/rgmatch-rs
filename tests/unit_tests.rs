@@ -5141,7 +5141,10 @@ mod test_overlap_cases_exhaustive {
         let has_first_exon = candidates.iter().any(|c| c.area == Area::FirstExon);
         assert!(has_first_exon);
         // pctg_region should be 100%
-        let first_exon = candidates.iter().find(|c| c.area == Area::FirstExon).unwrap();
+        let first_exon = candidates
+            .iter()
+            .find(|c| c.area == Area::FirstExon)
+            .unwrap();
         assert_eq!(first_exon.pctg_region, 100.0);
     }
 
@@ -5190,7 +5193,7 @@ mod test_overlap_cases_exhaustive {
     fn test_tts_positive_strand_downstream() {
         let mut config = Config::default();
         config.tts = 200.0; // Enable TTS checking
-        // Region [2050, 2100] is downstream of exon [1000, 2000]
+                            // Region [2050, 2100] is downstream of exon [1000, 2000]
         let region = Region::new("chr1".into(), 2050, 2100, vec![]);
         let genes = vec![make_test_gene_with_transcript(
             "G1",
@@ -5210,7 +5213,7 @@ mod test_overlap_cases_exhaustive {
     #[test]
     fn test_tss_upstream_region() {
         let config = Config::default(); // tss=200 by default
-        // Region [1850, 1950] is 50-150bp upstream of exon [2000, 3000]
+                                        // Region [1850, 1950] is 50-150bp upstream of exon [2000, 3000]
         let region = Region::new("chr1".into(), 1850, 1950, vec![]);
         let genes = vec![make_test_gene_with_transcript(
             "G1",
@@ -5277,10 +5280,15 @@ mod test_overlap_cases_exhaustive {
         let candidates = match_region_to_genes(&region, &genes, &config, 0);
         // Should have both exon and intron overlaps
         let areas: Vec<Area> = candidates.iter().map(|c| c.area).collect();
-        let has_gene_body_or_first = areas.contains(&Area::GeneBody) || areas.contains(&Area::FirstExon);
+        let has_gene_body_or_first =
+            areas.contains(&Area::GeneBody) || areas.contains(&Area::FirstExon);
         let has_intron = areas.contains(&Area::Intron);
 
-        assert!(has_gene_body_or_first || has_intron, "Should span multiple features: {:?}", areas);
+        assert!(
+            has_gene_body_or_first || has_intron,
+            "Should span multiple features: {:?}",
+            areas
+        );
     }
 }
 
@@ -5297,10 +5305,26 @@ mod test_gtf_data_extended {
     fn test_gtf_data_max_lengths_calculation() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // Gene spanning 1000-3000 (length 2000)
-        writeln!(temp_file, "chr1\tTEST\tgene\t1000\t3000\t.\t+\t.\tgene_id \"G1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\ttranscript\t1000\t3000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t1500\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t2500\t3000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\tgene\t1000\t3000\t.\t+\t.\tgene_id \"G1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\ttranscript\t1000\t3000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1500\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t2500\t3000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -5314,11 +5338,27 @@ mod test_gtf_data_extended {
     fn test_gtf_data_multiple_genes_max_length() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // Gene1: 1000-2000 (length 1000)
-        writeln!(temp_file, "chr1\tTEST\tgene\t1000\t2000\t.\t+\t.\tgene_id \"G1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\tgene\t1000\t2000\t.\t+\t.\tgene_id \"G1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         // Gene2: 5000-8000 (length 3000) - should be the max
-        writeln!(temp_file, "chr1\tTEST\tgene\t5000\t8000\t.\t+\t.\tgene_id \"G2\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t5000\t8000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\tgene\t5000\t8000\t.\t+\t.\tgene_id \"G2\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t5000\t8000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -5329,11 +5369,23 @@ mod test_gtf_data_extended {
     fn test_gtf_data_multiple_chromosomes() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // chr1: gene 1000-2000
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         // chr2: gene 5000-10000
-        writeln!(temp_file, "chr2\tTEST\texon\t5000\t10000\t.\t-\t.\tgene_id \"G2\"; transcript_id \"T2\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr2\tTEST\texon\t5000\t10000\t.\t-\t.\tgene_id \"G2\"; transcript_id \"T2\";"
+        )
+        .unwrap();
         // chrX: gene 100-200
-        writeln!(temp_file, "chrX\tTEST\texon\t100\t200\t.\t+\t.\tgene_id \"G3\"; transcript_id \"T3\";").unwrap();
+        writeln!(
+            temp_file,
+            "chrX\tTEST\texon\t100\t200\t.\t+\t.\tgene_id \"G3\"; transcript_id \"T3\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -5349,7 +5401,11 @@ mod test_gtf_data_extended {
     #[test]
     fn test_gtf_data_clone() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -5363,8 +5419,16 @@ mod test_gtf_data_extended {
     fn test_gtf_only_exons_calculates_sizes() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // No gene/transcript entries - sizes should be calculated from exons
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
-        writeln!(temp_file, "chr1\tTEST\texon\t1500\t1800\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1500\t1800\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -5378,9 +5442,17 @@ mod test_gtf_data_extended {
     fn test_gtf_skip_invalid_strand() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // Invalid strand '.' should be skipped
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t.\t.\tgene_id \"G1\"; transcript_id \"T1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t.\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
         // Valid entry
-        writeln!(temp_file, "chr1\tTEST\texon\t3000\t4000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t3000\t4000\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
@@ -5394,13 +5466,20 @@ mod test_gtf_data_extended {
     fn test_gtf_custom_tags() {
         let mut temp_file = NamedTempFile::new().unwrap();
         // Using custom tags instead of gene_id/transcript_id
-        writeln!(temp_file, "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tmy_gene \"MG1\"; my_trans \"MT1\";").unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tmy_gene \"MG1\"; my_trans \"MT1\";"
+        )
+        .unwrap();
         temp_file.flush().unwrap();
 
         let result = parse_gtf(temp_file.path(), "my_gene", "my_trans").unwrap();
 
         assert_eq!(result.genes_by_chrom["chr1"][0].gene_id, "MG1");
-        assert_eq!(result.genes_by_chrom["chr1"][0].transcripts[0].transcript_id, "MT1");
+        assert_eq!(
+            result.genes_by_chrom["chr1"][0].transcripts[0].transcript_id,
+            "MT1"
+        );
     }
 }
 
@@ -5596,7 +5675,13 @@ mod test_match_regions_integration {
     use rgmatch::types::{Exon, Strand, Transcript};
     use rgmatch::{Gene, Region};
 
-    fn make_gene(gene_id: &str, start: i64, end: i64, strand: Strand, exons: Vec<(i64, i64)>) -> Gene {
+    fn make_gene(
+        gene_id: &str,
+        start: i64,
+        end: i64,
+        strand: Strand,
+        exons: Vec<(i64, i64)>,
+    ) -> Gene {
         let mut gene = Gene::new(gene_id.to_string(), strand);
         gene.set_length(start, end);
         let mut transcript = Transcript::new(format!("T_{}", gene_id));
@@ -5613,7 +5698,13 @@ mod test_match_regions_integration {
     fn test_match_regions_empty_input() {
         let config = Config::default();
         let regions: Vec<Region> = vec![];
-        let genes = vec![make_gene("G1", 1000, 2000, Strand::Positive, vec![(1000, 2000)])];
+        let genes = vec![make_gene(
+            "G1",
+            1000,
+            2000,
+            Strand::Positive,
+            vec![(1000, 2000)],
+        )];
 
         let results = match_regions_to_genes(&regions, &genes, &config, 0);
         assert!(results.is_empty());
@@ -5639,9 +5730,13 @@ mod test_match_regions_integration {
             Region::new("chr1".into(), 2050, 2150, vec![]),
         ];
 
-        let genes = vec![
-            make_gene("G1", 1000, 2000, Strand::Positive, vec![(1000, 1200), (1500, 1700)]),
-        ];
+        let genes = vec![make_gene(
+            "G1",
+            1000,
+            2000,
+            Strand::Positive,
+            vec![(1000, 1200), (1500, 1700)],
+        )];
 
         let results = match_regions_to_genes(&regions, &genes, &config, 0);
 
@@ -5659,9 +5754,13 @@ mod test_match_regions_integration {
         let regions = vec![Region::new("chr1".into(), 500, 600, vec![])];
 
         // Gene starts at 1000 - region is 400-500bp upstream, within default distance
-        let genes = vec![
-            make_gene("G1", 1000, 3000, Strand::Positive, vec![(1000, 1200)]),
-        ];
+        let genes = vec![make_gene(
+            "G1",
+            1000,
+            3000,
+            Strand::Positive,
+            vec![(1000, 1200)],
+        )];
 
         // max_gene_length = 2000 (3000-1000)
         let results = match_regions_to_genes(&regions, &genes, &config, 2000);
@@ -5825,8 +5924,17 @@ mod test_apply_rules_edge_cases {
 
     fn make_candidate(area: Area, pctg_region: f64, pctg_area: f64, transcript: &str) -> Candidate {
         Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), area,
-            transcript.to_string(), "G1".to_string(), 0, pctg_region, pctg_area, 100,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            area,
+            transcript.to_string(),
+            "G1".to_string(),
+            0,
+            pctg_region,
+            pctg_area,
+            100,
         )
     }
 
@@ -5936,10 +6044,25 @@ mod test_select_transcript_edge_cases {
     use rgmatch::matcher::rules::select_transcript;
     use rgmatch::types::{Area, Candidate, Strand};
 
-    fn make_candidate(area: Area, pctg_region: f64, pctg_area: f64, transcript: &str, gene: &str) -> Candidate {
+    fn make_candidate(
+        area: Area,
+        pctg_region: f64,
+        pctg_area: f64,
+        transcript: &str,
+        gene: &str,
+    ) -> Candidate {
         Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), area,
-            transcript.to_string(), gene.to_string(), 0, pctg_region, pctg_area, 100,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            area,
+            transcript.to_string(),
+            gene.to_string(),
+            0,
+            pctg_region,
+            pctg_area,
+            100,
         )
     }
 
@@ -6066,19 +6189,38 @@ mod test_output_extended_formatting {
     #[test]
     fn test_format_output_line_all_areas() {
         let areas = [
-            Area::Tss, Area::FirstExon, Area::Promoter, Area::Tts,
-            Area::Intron, Area::GeneBody, Area::Upstream, Area::Downstream,
+            Area::Tss,
+            Area::FirstExon,
+            Area::Promoter,
+            Area::Tts,
+            Area::Intron,
+            Area::GeneBody,
+            Area::Upstream,
+            Area::Downstream,
         ];
 
         for area in areas {
             let region = Region::new("chr1".to_string(), 100, 200, vec![]);
             let candidate = Candidate::new(
-                100, 200, Strand::Positive, "1".to_string(), area,
-                "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 0,
+                100,
+                200,
+                Strand::Positive,
+                "1".to_string(),
+                area,
+                "T1".to_string(),
+                "G1".to_string(),
+                0,
+                100.0,
+                100.0,
+                0,
             );
 
             let line = format_output_line(&region, &candidate);
-            assert!(line.contains(area.as_str()), "Line should contain area: {}", area.as_str());
+            assert!(
+                line.contains(area.as_str()),
+                "Line should contain area: {}",
+                area.as_str()
+            );
         }
     }
 
@@ -6086,8 +6228,14 @@ mod test_output_extended_formatting {
     fn test_format_output_line_decimal_formatting() {
         let region = Region::new("chr1".to_string(), 100, 200, vec![]);
         let candidate = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), Area::Tss,
-            "T1".to_string(), "G1".to_string(), 0,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
             33.333333, // Should be formatted to 33.33
             66.666666, // Should be formatted to 66.67
             0,
@@ -6102,8 +6250,17 @@ mod test_output_extended_formatting {
     fn test_format_output_line_region_id_format() {
         let region = Region::new("chrX".to_string(), 12345, 67890, vec![]);
         let candidate = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), Area::Tss,
-            "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 0,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            0,
         );
 
         let line = format_output_line(&region, &candidate);
@@ -6115,8 +6272,17 @@ mod test_output_extended_formatting {
         // Region [100, 201] -> midpoint = 150 (integer division)
         let region = Region::new("chr1".to_string(), 100, 201, vec![]);
         let candidate = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), Area::Tss,
-            "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 0,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            0,
         );
 
         let line = format_output_line(&region, &candidate);
@@ -6128,12 +6294,23 @@ mod test_output_extended_formatting {
     fn test_format_output_line_metadata_trimming() {
         // Metadata with trailing whitespace
         let region = Region::new(
-            "chr1".to_string(), 100, 200,
+            "chr1".to_string(),
+            100,
+            200,
             vec!["name1  ".to_string(), "500\n".to_string()],
         );
         let candidate = Candidate::new(
-            100, 200, Strand::Positive, "1".to_string(), Area::Tss,
-            "T1".to_string(), "G1".to_string(), 0, 100.0, 100.0, 0,
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            0,
         );
 
         let line = format_output_line(&region, &candidate);
