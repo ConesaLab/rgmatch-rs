@@ -1936,11 +1936,7 @@ mod test_output {
             "chr1".to_string(),
             100,
             200,
-            vec![
-                "peak1".to_string(),
-                "500".to_string(),
-                "+".to_string(),
-            ],
+            vec!["peak1".to_string(), "500".to_string(), "+".to_string()],
         );
         let candidate = Candidate::new(
             100,
