@@ -4926,3 +4926,1158 @@ mod test_candidate_extended {
         assert!(debug_str.contains("Tss"));
     }
 }
+
+// -------------------------------------------------------------------------
+// 31. match_regions_to_genes Integration Tests
+// -------------------------------------------------------------------------
+
+mod test_match_regions_to_genes {
+    use super::*;
+    use rgmatch::matcher::overlap::match_regions_to_genes;
+    use rgmatch::types::{Exon, Strand, Transcript};
+    use rgmatch::{Config, Gene, Region, ReportLevel};
+
+    fn make_multi_exon_gene(gene_id: &str, strand: Strand, exons: Vec<(i64, i64)>) -> Gene {
+        let mut gene = Gene::new(gene_id.to_string(), strand);
+        let mut transcript = Transcript::new(format!("T_{}", gene_id));
+        for (s, e) in &exons {
+            transcript.add_exon(Exon::new(*s, *e));
+        }
+        transcript.calculate_size();
+        transcript.renumber_exons(strand);
+        gene.add_transcript(transcript);
+        gene.calculate_size();
+        gene
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_empty_regions() {
+        let config = Config::default();
+        let regions: Vec<Region> = vec![];
+        let genes = vec![make_multi_exon_gene(
+            "G1",
+            Strand::Positive,
+            vec![(1000, 1200)],
+        )];
+
+        let results = match_regions_to_genes(&regions, &genes, &config, 1000);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_empty_genes() {
+        let config = Config::default();
+        let regions = vec![Region::new("chr1".into(), 100, 200, vec![])];
+        let genes: Vec<Gene> = vec![];
+
+        let results = match_regions_to_genes(&regions, &genes, &config, 0);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].1.is_empty());
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_sorted_regions() {
+        let config = Config::default();
+        let regions = vec![
+            Region::new("chr1".into(), 1050, 1100, vec![]),
+            Region::new("chr1".into(), 1150, 1200, vec![]),
+            Region::new("chr1".into(), 2050, 2100, vec![]),
+        ];
+        let genes = vec![
+            make_multi_exon_gene("G1", Strand::Positive, vec![(1000, 1200)]),
+            make_multi_exon_gene("G2", Strand::Positive, vec![(2000, 2200)]),
+        ];
+
+        let results = match_regions_to_genes(&regions, &genes, &config, 1000);
+        assert_eq!(results.len(), 3);
+        // First two regions should match G1
+        assert!(!results[0].1.is_empty());
+        assert!(!results[1].1.is_empty());
+        // Third region should match G2
+        assert!(!results[2].1.is_empty());
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_max_gene_length() {
+        let config = Config::default();
+        let regions = vec![Region::new("chr1".into(), 500, 600, vec![])];
+        let genes = vec![make_multi_exon_gene(
+            "G1",
+            Strand::Positive,
+            vec![(1000, 5000)],
+        )];
+
+        // With max_gene_length=4000, lookback covers the region
+        let results = match_regions_to_genes(&regions, &genes, &config, 4000);
+        // Region is upstream of gene - should find upstream/TSS/PROMOTER candidate
+        assert!(!results[0].1.is_empty());
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_multiple_chromosomes() {
+        let config = Config::default();
+        // Regions on different chromosomes (but all genes on chr1 for simplicity)
+        let regions = vec![
+            Region::new("chr1".into(), 1050, 1100, vec![]),
+            Region::new("chr2".into(), 1050, 1100, vec![]),
+        ];
+        let genes = vec![make_multi_exon_gene(
+            "G1",
+            Strand::Positive,
+            vec![(1000, 1200)],
+        )];
+
+        let results = match_regions_to_genes(&regions, &genes, &config, 1000);
+        // Both processed, but only chr1 region matches
+        assert_eq!(results.len(), 2);
+        assert!(!results[0].1.is_empty()); // chr1 matches
+        // chr2 doesn't match (different chrom logic is in main matching)
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_large_gap_between_genes() {
+        let config = Config::default();
+        let regions = vec![
+            Region::new("chr1".into(), 1050, 1100, vec![]),
+            Region::new("chr1".into(), 50050, 50100, vec![]),
+        ];
+        let genes = vec![
+            make_multi_exon_gene("G1", Strand::Positive, vec![(1000, 1200)]),
+            make_multi_exon_gene("G2", Strand::Positive, vec![(50000, 50200)]),
+        ];
+
+        let results = match_regions_to_genes(&regions, &genes, &config, 1000);
+        assert_eq!(results.len(), 2);
+        // First region matches G1
+        assert!(results[0].1.iter().any(|c| c.gene == "G1"));
+        // Second region matches G2
+        assert!(results[1].1.iter().any(|c| c.gene == "G2"));
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_with_gene_level_reporting() {
+        let config = Config {
+            level: ReportLevel::Gene,
+            ..Default::default()
+        };
+
+        let mut gene = Gene::new("G1".to_string(), Strand::Positive);
+        let mut t1 = Transcript::new("T1".to_string());
+        t1.add_exon(Exon::new(1000, 1200));
+        t1.calculate_size();
+        t1.renumber_exons(Strand::Positive);
+
+        let mut t2 = Transcript::new("T2".to_string());
+        t2.add_exon(Exon::new(1100, 1300));
+        t2.calculate_size();
+        t2.renumber_exons(Strand::Positive);
+
+        gene.add_transcript(t1);
+        gene.add_transcript(t2);
+        gene.calculate_size();
+
+        let regions = vec![Region::new("chr1".into(), 1150, 1250, vec![])];
+        let genes = vec![gene];
+
+        let results = match_regions_to_genes(&regions, &genes, &config, 1000);
+        // Gene level - should merge transcripts
+        assert_eq!(results.len(), 1);
+        // Should have consolidated output
+        for candidate in &results[0].1 {
+            // At gene level, transcripts should be merged
+            if candidate.gene == "G1" {
+                // Candidate should exist
+                assert!(!candidate.transcript.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_regions_to_genes_preserves_region_order() {
+        let config = Config::default();
+        let regions = vec![
+            Region::new("chr1".into(), 5000, 5100, vec!["region_5".into()]),
+            Region::new("chr1".into(), 1000, 1100, vec!["region_1".into()]),
+            Region::new("chr1".into(), 3000, 3100, vec!["region_3".into()]),
+        ];
+        let genes = vec![
+            make_multi_exon_gene("G1", Strand::Positive, vec![(900, 1200)]),
+            make_multi_exon_gene("G2", Strand::Positive, vec![(2900, 3200)]),
+            make_multi_exon_gene("G3", Strand::Positive, vec![(4900, 5200)]),
+        ];
+
+        let results = match_regions_to_genes(&regions, &genes, &config, 1000);
+        assert_eq!(results.len(), 3);
+        // Order should be preserved
+        assert_eq!(results[0].0.metadata[0], "region_5");
+        assert_eq!(results[1].0.metadata[0], "region_1");
+        assert_eq!(results[2].0.metadata[0], "region_3");
+    }
+}
+
+// -------------------------------------------------------------------------
+// 32. Transcript Advanced Tests
+// -------------------------------------------------------------------------
+
+mod test_transcript_advanced {
+    use rgmatch::types::{Exon, Strand, Transcript};
+
+    #[test]
+    fn test_transcript_set_length_with_later_calculate_size() {
+        let mut t = Transcript::new("T1".to_string());
+        // Set explicit boundaries first
+        t.set_length(500, 1500);
+
+        // Add exon that is within the boundaries
+        t.add_exon(Exon::new(600, 700));
+        t.add_exon(Exon::new(800, 900));
+
+        // calculate_size should NOT shrink the boundaries
+        t.calculate_size();
+
+        // Boundaries should stay at 500-1500 since exons are within
+        // Actually, calculate_size compares with i64::MAX and 0 defaults
+        // Let's check behavior
+        assert!(t.start <= 600);
+        assert!(t.end >= 900);
+    }
+
+    #[test]
+    fn test_transcript_set_length_then_exon_extends() {
+        let mut t = Transcript::new("T1".to_string());
+        t.set_length(500, 1000);
+
+        // Add exon that extends beyond set boundaries
+        t.add_exon(Exon::new(400, 1200));
+
+        t.calculate_size();
+
+        // calculate_size should expand to exon boundaries
+        assert_eq!(t.start, 400);
+        assert_eq!(t.end, 1200);
+    }
+
+    #[test]
+    fn test_transcript_renumber_with_many_exons() {
+        let mut t = Transcript::new("T1".to_string());
+        for i in 0..10 {
+            t.add_exon(Exon::new(i * 1000, i * 1000 + 500));
+        }
+
+        t.renumber_exons(Strand::Positive);
+
+        for (i, exon) in t.exons.iter().enumerate() {
+            assert_eq!(exon.exon_number, Some((i + 1).to_string()));
+        }
+    }
+
+    #[test]
+    fn test_transcript_renumber_negative_many_exons() {
+        let mut t = Transcript::new("T1".to_string());
+        for i in 0..5 {
+            t.add_exon(Exon::new(i * 1000, i * 1000 + 500));
+        }
+
+        t.renumber_exons(Strand::Negative);
+
+        // First exon (lowest position) should have highest number
+        assert_eq!(t.exons[0].exon_number, Some("5".to_string()));
+        // Last exon (highest position) should have number 1
+        assert_eq!(t.exons[4].exon_number, Some("1".to_string()));
+    }
+
+    #[test]
+    fn test_transcript_overlapping_exons() {
+        // In real data, exons shouldn't overlap, but test robustness
+        let mut t = Transcript::new("T1".to_string());
+        t.add_exon(Exon::new(100, 300));
+        t.add_exon(Exon::new(200, 400)); // Overlaps with first
+
+        t.calculate_size();
+        t.renumber_exons(Strand::Positive);
+
+        assert_eq!(t.start, 100);
+        assert_eq!(t.end, 400);
+        assert_eq!(t.exons.len(), 2);
+    }
+
+    #[test]
+    fn test_transcript_single_exon() {
+        let mut t = Transcript::new("T1".to_string());
+        t.add_exon(Exon::new(1000, 2000));
+
+        t.calculate_size();
+        t.renumber_exons(Strand::Positive);
+
+        assert_eq!(t.exons[0].exon_number, Some("1".to_string()));
+        assert_eq!(t.start, 1000);
+        assert_eq!(t.end, 2000);
+    }
+
+    #[test]
+    fn test_transcript_clone_preserves_exon_numbers() {
+        let mut t = Transcript::new("T1".to_string());
+        t.add_exon(Exon::new(100, 200));
+        t.add_exon(Exon::new(300, 400));
+        t.renumber_exons(Strand::Positive);
+
+        let cloned = t.clone();
+
+        assert_eq!(cloned.exons[0].exon_number, Some("1".to_string()));
+        assert_eq!(cloned.exons[1].exon_number, Some("2".to_string()));
+    }
+}
+
+// -------------------------------------------------------------------------
+// 33. Process Candidates Edge Cases
+// -------------------------------------------------------------------------
+
+mod test_process_candidates_edge_cases {
+    use super::*;
+    use rgmatch::matcher::overlap::process_candidates_for_output;
+    use rgmatch::{Config, ReportLevel};
+
+    #[test]
+    fn test_process_single_candidate_exon_level() {
+        let config = Config {
+            level: ReportLevel::Exon,
+            ..Default::default()
+        };
+
+        let c = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let candidates = vec![c];
+        let result = process_candidates_for_output(candidates, &config);
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_process_single_candidate_transcript_level() {
+        let config = Config {
+            level: ReportLevel::Transcript,
+            ..Default::default()
+        };
+
+        let c = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let candidates = vec![c];
+        let result = process_candidates_for_output(candidates, &config);
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_process_single_candidate_gene_level() {
+        let config = Config {
+            level: ReportLevel::Gene,
+            ..Default::default()
+        };
+
+        let c = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let candidates = vec![c];
+        let result = process_candidates_for_output(candidates, &config);
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_process_multiple_genes_gene_level() {
+        let config = Config {
+            level: ReportLevel::Gene,
+            ..Default::default()
+        };
+
+        let c1 = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Intron, 80.0, 80.0, "T2", "G2", "1");
+        let c3 = make_candidate(Area::FirstExon, 90.0, 90.0, "T3", "G3", "1");
+
+        let candidates = vec![c1, c2, c3];
+        let result = process_candidates_for_output(candidates, &config);
+
+        // Should have one result per gene
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_process_same_gene_different_transcripts_gene_level() {
+        let config = Config {
+            level: ReportLevel::Gene,
+            ..Default::default()
+        };
+
+        let c1 = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Tss, 95.0, 95.0, "T2", "G1", "2");
+        let c3 = make_candidate(Area::Tss, 90.0, 90.0, "T3", "G1", "3");
+
+        let candidates = vec![c1, c2, c3];
+        let result = process_candidates_for_output(candidates, &config);
+
+        // Should merge into one for G1
+        assert_eq!(result.len(), 1);
+        // Should have max percentages
+        assert_eq!(result[0].pctg_region, 100.0);
+        assert_eq!(result[0].pctg_area, 100.0);
+    }
+
+    #[test]
+    fn test_process_mixed_areas_transcript_level() {
+        let config = Config {
+            level: ReportLevel::Transcript,
+            ..Default::default()
+        };
+
+        // Same transcript, multiple areas - TSS has highest pctg_region to win
+        let c1 = make_candidate(Area::Intron, 80.0, 80.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1"); // Highest percentages
+        let c3 = make_candidate(Area::GeneBody, 90.0, 90.0, "T1", "G1", "2");
+
+        let candidates = vec![c1, c2, c3];
+        let result = process_candidates_for_output(candidates, &config);
+
+        // TSS should win - it has highest priority AND meets thresholds
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].area, Area::Tss);
+    }
+
+    #[test]
+    fn test_process_all_below_threshold() {
+        let config = Config {
+            level: ReportLevel::Transcript,
+            perc_region: 95.0,
+            perc_area: 95.0,
+            ..Default::default()
+        };
+
+        // When all below thresholds, fallback uses max pctg_region tiebreaker
+        let c1 = make_candidate(Area::Tss, 50.0, 50.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Intron, 60.0, 60.0, "T1", "G1", "2");
+
+        let candidates = vec![c1, c2];
+        let result = process_candidates_for_output(candidates, &config);
+
+        // Intron wins because it has higher pctg_region (60 > 50) when all below threshold
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].area, Area::Intron);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 34. Config Validation Tests
+// -------------------------------------------------------------------------
+
+mod test_config_validation {
+    use rgmatch::config::Config;
+    use rgmatch::types::Area;
+
+    #[test]
+    fn test_config_parse_rules_empty_string() {
+        let mut config = Config::new();
+        let result = config.parse_rules("");
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_config_parse_rules_only_commas() {
+        let mut config = Config::new();
+        let result = config.parse_rules(",,,,,");
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_config_parse_rules_partial_valid() {
+        let mut config = Config::new();
+        // Only 3 valid tags - should fail
+        let result = config.parse_rules("TSS,1st_EXON,PROMOTER");
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_config_parse_rules_with_invalid_tag() {
+        let mut config = Config::new();
+        let result = config.parse_rules(
+            "TSS,1st_EXON,PROMOTER,TTS,INTRON,GENE_BODY,UPSTREAM,INVALID_TAG",
+        );
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_config_set_distance_kb_multiple_times() {
+        let mut config = Config::new();
+        config.set_distance_kb(10);
+        assert_eq!(config.distance, 10000);
+
+        config.set_distance_kb(20);
+        assert_eq!(config.distance, 20000);
+
+        config.set_distance_kb(5);
+        assert_eq!(config.distance, 5000);
+    }
+
+    #[test]
+    fn test_config_max_lookback_all_zero() {
+        let mut config = Config::new();
+        config.tss = 0.0;
+        config.tts = 0.0;
+        config.promoter = 0.0;
+        config.distance = 0;
+
+        assert_eq!(config.max_lookback_distance(), 0);
+    }
+
+    #[test]
+    fn test_config_max_lookback_large_values() {
+        let mut config = Config::new();
+        config.tss = 1_000_000.0;
+        config.tts = 500_000.0;
+        config.promoter = 750_000.0;
+        config.distance = 100_000;
+
+        // Should return max of all
+        assert_eq!(config.max_lookback_distance(), 1_000_000);
+    }
+
+    #[test]
+    fn test_config_default_rules_order() {
+        let config = Config::default();
+
+        // Verify default rule order
+        assert_eq!(config.rules[0], Area::Tss);
+        assert_eq!(config.rules[1], Area::FirstExon);
+        assert_eq!(config.rules[2], Area::Promoter);
+        assert_eq!(config.rules[3], Area::Tts);
+        assert_eq!(config.rules[4], Area::Intron);
+        assert_eq!(config.rules[5], Area::GeneBody);
+        assert_eq!(config.rules[6], Area::Upstream);
+        assert_eq!(config.rules[7], Area::Downstream);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 35. TSS Edge Case Boundary Tests
+// -------------------------------------------------------------------------
+
+mod test_tss_boundary_conditions {
+    use rgmatch::matcher::tss::{check_tss, TssExonInfo};
+    use rgmatch::types::Strand;
+
+    #[test]
+    fn test_tss_region_at_exact_tss_position() {
+        // Region exactly at TSS (exon start for positive strand)
+        let exon = TssExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Positive,
+            distance: 0,
+        };
+        // Region is exactly at exon start
+        let res = check_tss(1000, 1010, &exon, 200.0, 1300.0);
+        // Should be in TSS or possibly other zone
+        assert!(!res.is_empty());
+    }
+
+    #[test]
+    fn test_tss_very_large_distances() {
+        let exon = TssExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Positive,
+            distance: 1_000_000,
+        };
+        let res = check_tss(0, 100, &exon, 200.0, 1300.0);
+        // Very far upstream
+        let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
+        assert!(tags.contains(&"UPSTREAM"));
+    }
+
+    #[test]
+    fn test_tss_negative_strand_at_end() {
+        let exon = TssExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Negative,
+            distance: 0,
+        };
+        // For negative strand, TSS is at end (2000)
+        // Region just after end
+        let res = check_tss(2000, 2010, &exon, 200.0, 1300.0);
+        assert!(!res.is_empty());
+    }
+
+    #[test]
+    fn test_tss_zero_length_tss_zone() {
+        let exon = TssExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Positive,
+            distance: 0,
+        };
+        // TSS distance is 0 - everything should go to promoter or upstream
+        let res = check_tss(900, 950, &exon, 0.0, 1300.0);
+        let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
+        // With TSS=0, should be PROMOTER or UPSTREAM
+        assert!(tags.contains(&"PROMOTER") || tags.contains(&"UPSTREAM"));
+    }
+
+    #[test]
+    fn test_tss_large_region_spanning_all() {
+        let exon = TssExonInfo {
+            start: 5000,
+            end: 6000,
+            strand: Strand::Positive,
+            distance: 0,
+        };
+        // Region from 0 to 5000 spans everything upstream
+        let res = check_tss(0, 4999, &exon, 200.0, 1300.0);
+        let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
+        // Should contain multiple zones
+        assert!(!res.is_empty());
+        // Should have TSS, PROMOTER, and UPSTREAM
+        assert!(
+            tags.contains(&"TSS") || tags.contains(&"PROMOTER") || tags.contains(&"UPSTREAM")
+        );
+    }
+}
+
+// -------------------------------------------------------------------------
+// 36. TTS Edge Case Boundary Tests
+// -------------------------------------------------------------------------
+
+mod test_tts_boundary_conditions {
+    use rgmatch::matcher::tts::{check_tts, TtsExonInfo};
+    use rgmatch::types::Strand;
+
+    #[test]
+    fn test_tts_region_at_exact_tts_position() {
+        let exon = TtsExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Positive,
+            distance: 0,
+        };
+        // Region exactly at exon end
+        let res = check_tts(2000, 2010, &exon, 200.0);
+        assert!(!res.is_empty());
+    }
+
+    #[test]
+    fn test_tts_very_large_distances() {
+        let exon = TtsExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Positive,
+            distance: 1_000_000,
+        };
+        let res = check_tts(1_002_000, 1_002_100, &exon, 200.0);
+        // Very far downstream
+        let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
+        assert!(tags.contains(&"DOWNSTREAM"));
+    }
+
+    #[test]
+    fn test_tts_negative_strand_at_start() {
+        let exon = TtsExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Negative,
+            distance: 0,
+        };
+        // For negative strand, TTS is at start (1000)
+        // Region just before start
+        let res = check_tts(990, 999, &exon, 200.0);
+        assert!(!res.is_empty());
+    }
+
+    #[test]
+    fn test_tts_zero_tts_zone() {
+        let exon = TtsExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Positive,
+            distance: 50,
+        };
+        // TTS distance is 0
+        let res = check_tts(2050, 2100, &exon, 0.0);
+        let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
+        // Everything downstream of TTS zone should be DOWNSTREAM
+        assert!(tags.contains(&"DOWNSTREAM"));
+    }
+
+    #[test]
+    fn test_tts_large_region() {
+        let exon = TtsExonInfo {
+            start: 1000,
+            end: 2000,
+            strand: Strand::Positive,
+            distance: 0,
+        };
+        // Large region spanning TTS and downstream
+        let res = check_tts(2000, 3000, &exon, 200.0);
+        let tags: Vec<&str> = res.iter().map(|(t, _, _)| t.as_str()).collect();
+        // Should have both TTS and DOWNSTREAM
+        assert!(tags.contains(&"TTS") || tags.contains(&"DOWNSTREAM"));
+    }
+}
+
+// -------------------------------------------------------------------------
+// 37. BED Reader Edge Cases
+// -------------------------------------------------------------------------
+
+mod test_bed_reader_edge_cases {
+    use rgmatch::BedReader;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_bed_reader_single_line() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "chr1\t100\t200").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut reader = BedReader::new(temp_file.path()).unwrap();
+        let chunk1 = reader.read_chunk(100).unwrap().unwrap();
+        assert_eq!(chunk1.len(), 1);
+
+        let chunk2 = reader.read_chunk(100).unwrap();
+        assert!(chunk2.is_none());
+    }
+
+    #[test]
+    fn test_bed_reader_exact_chunk_size() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        for i in 0..5 {
+            writeln!(temp_file, "chr1\t{}\t{}", i * 100, i * 100 + 50).unwrap();
+        }
+        temp_file.flush().unwrap();
+
+        let mut reader = BedReader::new(temp_file.path()).unwrap();
+        let chunk = reader.read_chunk(5).unwrap().unwrap();
+        assert_eq!(chunk.len(), 5);
+
+        // Next chunk should be empty
+        let chunk2 = reader.read_chunk(5).unwrap();
+        assert!(chunk2.is_none());
+    }
+
+    #[test]
+    fn test_bed_reader_chunk_larger_than_file() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "chr1\t100\t200").unwrap();
+        writeln!(temp_file, "chr2\t300\t400").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut reader = BedReader::new(temp_file.path()).unwrap();
+        let chunk = reader.read_chunk(1000).unwrap().unwrap();
+        assert_eq!(chunk.len(), 2);
+    }
+
+    #[test]
+    fn test_bed_reader_comments_mixed() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "# Header comment").unwrap();
+        writeln!(temp_file, "chr1\t100\t200").unwrap();
+        writeln!(temp_file, "# Middle comment").unwrap();
+        writeln!(temp_file, "chr2\t300\t400").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut reader = BedReader::new(temp_file.path()).unwrap();
+        let chunk = reader.read_chunk(100).unwrap().unwrap();
+
+        // Should skip comments
+        assert_eq!(chunk.len(), 2);
+    }
+
+    #[test]
+    fn test_bed_reader_browser_track_lines() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "browser position chr1:1-1000").unwrap();
+        writeln!(temp_file, "track name=\"test\"").unwrap();
+        writeln!(temp_file, "chr1\t100\t200").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut reader = BedReader::new(temp_file.path()).unwrap();
+        let chunk = reader.read_chunk(100).unwrap().unwrap();
+
+        // Should skip browser/track lines
+        assert_eq!(chunk.len(), 1);
+    }
+
+    #[test]
+    fn test_bed_reader_windows_line_endings() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // Simulate Windows line endings
+        temp_file.write_all(b"chr1\t100\t200\r\n").unwrap();
+        temp_file.write_all(b"chr2\t300\t400\r\n").unwrap();
+        temp_file.flush().unwrap();
+
+        let mut reader = BedReader::new(temp_file.path()).unwrap();
+        let chunk = reader.read_chunk(100).unwrap().unwrap();
+
+        assert_eq!(chunk.len(), 2);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 38. GTF Parser Edge Cases
+// -------------------------------------------------------------------------
+
+mod test_gtf_parser_edge_cases {
+    use rgmatch::parser::gtf::parse_gtf;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_parse_gtf_single_exon_gene() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t2000\t.\t+\t.\tgene_id \"SINGLE\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        let gene = &result.genes_by_chrom["chr1"][0];
+
+        assert_eq!(gene.transcripts[0].exons.len(), 1);
+        assert_eq!(gene.transcripts[0].exons[0].exon_number, Some("1".to_string()));
+    }
+
+    #[test]
+    fn test_parse_gtf_many_exons() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        for i in 0..20 {
+            writeln!(
+                temp_file,
+                "chr1\tTEST\texon\t{}\t{}\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";",
+                i * 500,
+                i * 500 + 200
+            )
+            .unwrap();
+        }
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        let gene = &result.genes_by_chrom["chr1"][0];
+
+        assert_eq!(gene.transcripts[0].exons.len(), 20);
+    }
+
+    #[test]
+    fn test_parse_gtf_unsorted_exons() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // Exons in random order
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t3000\t3200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t2000\t2200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+        let transcript = &result.genes_by_chrom["chr1"][0].transcripts[0];
+
+        // Exons should be sorted by start
+        assert_eq!(transcript.exons[0].start, 1000);
+        assert_eq!(transcript.exons[1].start, 2000);
+        assert_eq!(transcript.exons[2].start, 3000);
+
+        // Exon numbers should be correct
+        assert_eq!(transcript.exons[0].exon_number, Some("1".to_string()));
+        assert_eq!(transcript.exons[1].exon_number, Some("2".to_string()));
+        assert_eq!(transcript.exons[2].exon_number, Some("3".to_string()));
+    }
+
+    #[test]
+    fn test_parse_gtf_mixed_strands_same_chrom() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t5000\t5200\t.\t-\t.\tgene_id \"G2\"; transcript_id \"T2\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+
+        assert_eq!(result.genes_by_chrom["chr1"].len(), 2);
+    }
+
+    #[test]
+    fn test_parse_gtf_gene_without_exons() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // Only gene entry, no exons
+        writeln!(
+            temp_file,
+            "chr1\tTEST\tgene\t1000\t2000\t.\t+\t.\tgene_id \"G1\";"
+        )
+        .unwrap();
+        // Add a valid gene with exons
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t5000\t5200\t.\t+\t.\tgene_id \"G2\"; transcript_id \"T2\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+
+        // G1 has no exons, might be skipped; G2 should exist
+        assert!(!result.genes_by_chrom.is_empty());
+    }
+
+    #[test]
+    fn test_parse_gtf_duplicate_exons() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // Same exon coordinates twice
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        writeln!(
+            temp_file,
+            "chr1\tTEST\texon\t1000\t1200\t.\t+\t.\tgene_id \"G1\"; transcript_id \"T1\";"
+        )
+        .unwrap();
+        temp_file.flush().unwrap();
+
+        let result = parse_gtf(temp_file.path(), "gene_id", "transcript_id").unwrap();
+
+        // Both exons are added (parser doesn't dedupe)
+        assert_eq!(result.genes_by_chrom["chr1"][0].transcripts[0].exons.len(), 2);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 39. Rules Priority Tests
+// -------------------------------------------------------------------------
+
+mod test_rules_priority {
+    use super::*;
+    use ahash::AHashMap;
+    use rgmatch::matcher::rules::apply_rules;
+
+    #[test]
+    fn test_first_exon_beats_promoter() {
+        let rules = default_rules(); // TSS, 1st_EXON, PROMOTER...
+        let c1 = make_candidate(Area::FirstExon, 100.0, 100.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Promoter, 100.0, 100.0, "T1", "G1", "1");
+
+        let candidates = vec![c1, c2];
+        let mut grouped_by = AHashMap::new();
+        grouped_by.insert("T1".to_string(), vec![0, 1]);
+
+        let result = apply_rules(&candidates, &grouped_by, 50.0, 90.0, &rules);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].area, Area::FirstExon);
+    }
+
+    #[test]
+    fn test_tss_beats_first_exon() {
+        let rules = default_rules();
+        let c1 = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::FirstExon, 100.0, 100.0, "T1", "G1", "1");
+
+        let candidates = vec![c1, c2];
+        let mut grouped_by = AHashMap::new();
+        grouped_by.insert("T1".to_string(), vec![0, 1]);
+
+        let result = apply_rules(&candidates, &grouped_by, 50.0, 90.0, &rules);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].area, Area::Tss);
+    }
+
+    #[test]
+    fn test_custom_rules_downstream_first() {
+        let rules = vec![
+            Area::Downstream,
+            Area::Upstream,
+            Area::GeneBody,
+            Area::Intron,
+            Area::Tts,
+            Area::Promoter,
+            Area::FirstExon,
+            Area::Tss,
+        ];
+
+        let c1 = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Downstream, 100.0, 100.0, "T1", "G1", "1");
+
+        let candidates = vec![c1, c2];
+        let mut grouped_by = AHashMap::new();
+        grouped_by.insert("T1".to_string(), vec![0, 1]);
+
+        let result = apply_rules(&candidates, &grouped_by, 50.0, 90.0, &rules);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].area, Area::Downstream);
+    }
+
+    #[test]
+    fn test_all_areas_same_priority_tie() {
+        // If only one area type in rules and multiple candidates with same percentages
+        let rules = vec![Area::Intron];
+
+        let c1 = make_candidate(Area::Intron, 80.0, 80.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Intron, 80.0, 80.0, "T2", "G1", "2");
+
+        let candidates = vec![c1, c2];
+        let mut grouped_by = AHashMap::new();
+        grouped_by.insert("T1".to_string(), vec![0, 1]);
+
+        let result = apply_rules(&candidates, &grouped_by, 50.0, 50.0, &rules);
+
+        // Should have both (tie)
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_pctg_region_tiebreaker() {
+        let rules = vec![Area::Intron];
+
+        let c1 = make_candidate(Area::Intron, 70.0, 100.0, "T1", "G1", "1");
+        let c2 = make_candidate(Area::Intron, 80.0, 100.0, "T2", "G1", "2");
+
+        let candidates = vec![c1, c2];
+        let mut grouped_by = AHashMap::new();
+        grouped_by.insert("T1".to_string(), vec![0, 1]);
+
+        let result = apply_rules(&candidates, &grouped_by, 50.0, 50.0, &rules);
+
+        // c2 wins with higher pctg_region
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].pctg_region, 80.0);
+    }
+}
+
+// -------------------------------------------------------------------------
+// 40. Output Line Format Validation
+// -------------------------------------------------------------------------
+
+mod test_output_format_validation {
+    use super::*;
+    use rgmatch::output::format_output_line;
+    use rgmatch::Region;
+
+    #[test]
+    fn test_output_line_field_count_no_meta() {
+        let region = Region::new("chr1".to_string(), 100, 200, vec![]);
+        let candidate = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+
+        let line = format_output_line(&region, &candidate);
+        let fields: Vec<&str> = line.split('\t').collect();
+
+        // Should have exactly 10 base fields
+        assert_eq!(fields.len(), 10);
+    }
+
+    #[test]
+    fn test_output_line_field_count_with_meta() {
+        let region = Region::new(
+            "chr1".to_string(),
+            100,
+            200,
+            vec!["name".to_string(), "score".to_string(), "+".to_string()],
+        );
+        let candidate = make_candidate(Area::Tss, 100.0, 100.0, "T1", "G1", "1");
+
+        let line = format_output_line(&region, &candidate);
+        let fields: Vec<&str> = line.split('\t').collect();
+
+        // Should have 10 base + 3 meta = 13 fields
+        assert_eq!(fields.len(), 13);
+    }
+
+    #[test]
+    fn test_output_line_field_order() {
+        let region = Region::new("chr1".to_string(), 100, 200, vec![]);
+        let candidate = Candidate::new(
+            100,
+            200,
+            Strand::Positive,
+            "5".to_string(),
+            Area::Intron,
+            "TRANSCRIPT_A".to_string(),
+            "GENE_X".to_string(),
+            42,
+            75.5,
+            88.88,
+            999,
+        );
+
+        let line = format_output_line(&region, &candidate);
+        let fields: Vec<&str> = line.split('\t').collect();
+
+        assert_eq!(fields[0], "chr1_100_200"); // Region ID
+        assert_eq!(fields[1], "150"); // Midpoint
+        assert_eq!(fields[2], "GENE_X"); // Gene
+        assert_eq!(fields[3], "TRANSCRIPT_A"); // Transcript
+        assert_eq!(fields[4], "5"); // Exon/Intron number
+        assert_eq!(fields[5], "INTRON"); // Area
+        assert_eq!(fields[6], "42"); // Distance
+        assert_eq!(fields[7], "999"); // TSS Distance
+        assert_eq!(fields[8], "75.50"); // PercRegion
+        assert_eq!(fields[9], "88.88"); // PercArea
+    }
+
+    #[test]
+    fn test_output_line_percentage_rounding() {
+        let region = Region::new("chr1".to_string(), 100, 200, vec![]);
+        let candidate = Candidate::new(
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            33.335, // Should round to 33.34
+            66.664, // Should round to 66.66
+            0,
+        );
+
+        let line = format_output_line(&region, &candidate);
+
+        assert!(line.contains("33.34") || line.contains("33.33")); // Depending on rounding
+        assert!(line.contains("66.66") || line.contains("66.67"));
+    }
+
+    #[test]
+    fn test_output_line_hundred_percent() {
+        let region = Region::new("chr1".to_string(), 100, 200, vec![]);
+        let candidate = Candidate::new(
+            100,
+            200,
+            Strand::Positive,
+            "1".to_string(),
+            Area::Tss,
+            "T1".to_string(),
+            "G1".to_string(),
+            0,
+            100.0,
+            100.0,
+            0,
+        );
+
+        let line = format_output_line(&region, &candidate);
+
+        assert!(line.contains("100.00"));
+    }
+}

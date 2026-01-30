@@ -1,83 +1,94 @@
 # Unit Test Coverage Task Notes
 
 ## Current Status
-Unit tests increased from 226 to 282 tests (56 new tests added this iteration).
+Unit tests increased from 282 to 344 tests (62 new tests added this iteration).
 
-## Tests Added This Iteration (Iteration 9)
+## Tests Added This Iteration (Iteration 10)
 
-### Gene Extended Tests (8 tests)
-- Empty transcripts handling
-- Mixed transcripts (some empty)
-- Multiple overlapping transcripts
-- calculate_size boundary behavior
-- Strand preservation
-- Debug trait
+### match_regions_to_genes Integration Tests (9 tests)
+- Empty regions handling
+- Empty genes handling
+- Sorted regions processing
+- max_gene_length parameter effects
+- Multiple chromosomes
+- Large gaps between genes
+- Gene level reporting with merging
+- Region order preservation
 
-### Region Extended Tests (9 tests)
-- Special chromosome names (chr1_random, chrUn_gl000220)
-- Empty chromosome
-- Negative coordinates
-- Zero-length regions
-- Inverted coordinates
-- Very large coordinates
-- Metadata with special characters
-- Unicode chromosome names
+### Transcript Advanced Tests (7 tests)
+- set_length with later calculate_size interactions
+- Exon extending beyond set boundaries
+- Renumber with many exons (positive/negative strand)
+- Overlapping exons robustness
+- Single exon transcript
+- Clone preserves exon numbers
 
-### Exon Extended Tests (5 tests)
-- Exon with exon number
-- Large span length
-- Single base length
-- Negative coordinates
-- Debug trait
+### Process Candidates Edge Cases (7 tests)
+- Single candidate at each level (exon/transcript/gene)
+- Multiple genes at gene level
+- Same gene different transcripts merging
+- Mixed areas at transcript level
+- All below threshold handling
 
-### Overlap Complex Tests (7 tests)
-- Region spans entire gene
-- Exact exon match
-- Region between two genes
-- Multiple transcripts same gene
-- Gene-level merging
-- Empty input handling
-- Negative strand TSS calculation
+### Config Validation Tests (8 tests)
+- Empty string rules
+- Only commas rules
+- Partial valid rules
+- Invalid tag handling
+- Multiple set_distance_kb calls
+- All zero max_lookback
+- Large value max_lookback
+- Default rules order verification
 
-### Output Special Character Tests (7 tests)
-- Metadata with tabs
-- Metadata with newlines
-- Unicode metadata
-- Empty strings
-- Negative distances
-- All header columns
-- Tab separation verification
+### TSS Boundary Condition Tests (5 tests)
+- Region at exact TSS position
+- Very large distances
+- Negative strand at end
+- Zero length TSS zone
+- Large region spanning all zones
 
-### GTF Attribute Extended Tests (7 tests)
-- Semicolon in value
-- Spaces around quotes
-- Numeric values
-- Long values
-- Extra attributes
-- Key as prefix handling
-- Missing transcript_id
+### TTS Boundary Condition Tests (5 tests)
+- Region at exact TTS position
+- Very large distances
+- Negative strand at start
+- Zero TTS zone
+- Large region spanning TTS and downstream
 
-### find_search_start_index Extended Tests (8 tests)
-- Exact match
-- Just before/after boundaries
-- Negative search value
-- Zero search value
-- Very large search value
-- Single gene cases
-- Duplicate start positions
+### BED Reader Edge Cases (5 tests)
+- Single line file
+- Exact chunk size
+- Chunk larger than file
+- Mixed comments
+- Browser/track lines
+- Windows line endings
 
-### Candidate Extended Tests (5 tests)
-- All area types
-- Negative percentages
-- Zero values
-- Large coordinates
-- Debug trait
+### GTF Parser Edge Cases (6 tests)
+- Single exon gene
+- Many exons (20)
+- Unsorted exons
+- Mixed strands same chromosome
+- Gene without exons
+- Duplicate exons
+
+### Rules Priority Tests (5 tests)
+- FirstExon beats Promoter
+- TSS beats FirstExon
+- Custom rules with Downstream first
+- All areas same priority tie
+- pctg_region tiebreaker
+
+### Output Line Format Validation (5 tests)
+- Field count with no metadata
+- Field count with metadata
+- Field order verification
+- Percentage rounding
+- Hundred percent formatting
 
 ## Running Tests
 ```bash
-cargo test --test unit_tests  # Unit tests (282 tests)
+cargo test --test unit_tests  # Unit tests (344 tests)
 cargo test --lib              # Library tests (55 tests)
-cargo test                    # All tests (~337 total, excluding integration)
+cargo test                    # All tests (~399 total, excluding integration)
 ```
 
 ## Next Steps for Coverage
