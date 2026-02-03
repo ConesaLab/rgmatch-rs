@@ -1,137 +1,120 @@
 # rgmatch-rs
 
-A high-performance Rust implementation of the rgmatch tool for genomic interval matching.
+[![Build Status](https://img.shields.io/github/actions/workflow/status/TianYuan-Liu/rgmatch-rs/ci.yml?branch=master)](https://github.com/TianYuan-Liu/rgmatch-rs/actions)
+![Crate](https://img.shields.io/badge/crates.io-coming%20soon-yellow)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**A high-performance Rust implementation of the RGmatch tool for genomic interval matching.**
+
+`rgmatch-rs` is a specialized bioinformatics tool designed to associate genomic regions (provided in BED format) with proximal gene features (from GTF annotation files). It provides flexible, rule-based annotation at the exon, transcript, or gene level, making it essential for integrating omics data such as ChIP-seq, ATAC-seq, or SMP data.
+
+## Features
+
+- **High Performance**: Optimized Rust implementation offers significant speedups over the original Python version.
+- **Flexible Reporting**: Output associations at the **exon**, **transcript**, or **gene** level.
+- **Detailed Annotations**: Identifies overlaps with exons, introns, promoters, TSS, TTS, and intergenic regions.
+- **Customizable Rules**: Users can define priority rules for overlapping features (e.g., prioritize TSS over Exons).
+- **Parallel Processing**: multi-threaded execution for handling large datasets efficiently.
+- **Streaming Support**: Capable of processing large genomic files with constant memory usage.
 
 ## Credits
 
-- **Original Author**: Pedro Furio
+- **Original Author**: Pedro Furió-Tarí
 - **Current Maintainer (Rust Version)**: Tianyuan Liu
 
-## Overview
+## Citation
 
-rgmatch-rs annotates genomic regions (BED format) with gene features from GTF annotation files. It identifies overlaps with exons, introns, promoters, TSS, TTS, and upstream/downstream regions, outputting detailed annotations for each region-gene association.
+If you use `rgmatch-rs` in your research, please cite the original publication:
+
+> Furió-Tarí P, Conesa A, Tarazona S. **RGmatch: matching genomic regions to proximal genes in omics data integration.** *BMC Bioinformatics*. 2016;17(Suppl 15):427.
+>
+> **DOI**: [10.1186/s12859-016-1293-1](https://doi.org/10.1186/s12859-016-1293-1) | **PMID**: [28185573](https://pubmed.ncbi.nlm.nih.gov/28185573/) | **PMCID**: PMC5133492
 
 ## Installation
 
 ### From Source
 
+Ensure you have [Rust](https://www.rust-lang.org/tools/install) installed (version 1.70 or later).
+
 ```bash
 # Clone the repository
-git clone https://github.com/<user>/rgmatch-rs.git
+git clone https://github.com/TianYuan-Liu/rgmatch-rs.git
 cd rgmatch-rs
 
 # Build in release mode
 cargo build --release
 
-# Binary will be at target/release/rgmatch
+# The binary will be located at:
+./target/release/rgmatch
 ```
-
-### Requirements
-
-- Rust 1.70 or later
-- Cargo (comes with Rust)
 
 ## Usage
 
-### Basic Example
+### Basic Command
 
 ```bash
 rgmatch -g annotations.gtf.gz -b regions.bed -o output.txt
 ```
 
-### Command-Line Options
+### Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--gtf` | `-g` | Path to GTF annotation file (supports .gz) | Required |
-| `--bed` | `-b` | Path to BED file with regions to annotate | Required |
-| `--output` | `-o` | Output file path | Required |
-| `--report` | `-r` | Report level: `exon`, `transcript`, or `gene` | `exon` |
-| `--distance` | `-q` | Maximum distance (kb) for upstream/downstream | `10` |
-| `--tss` | `-t` | TSS region size (bp) | `200` |
-| `--tts` | `-s` | TTS region size (bp) | `0` |
-| `--promoter` | `-p` | Promoter region size (bp) | `1300` |
-| `--perc_area` | `-v` | Minimum % of feature covered | `90` |
-| `--perc_region` | `-w` | Minimum % of region covered | `50` |
-| `--rules` | `-R` | Priority rules (comma-separated) | See below |
-| `--gene` | `-G` | GTF attribute for gene ID | `gene_id` |
-| `--transcript` | `-T` | GTF attribute for transcript ID | `transcript_id` |
-| `--threads` | `-j` | Number of worker threads | `8` |
-| `--batch-size` | | Regions per batch | `5000` |
-
-### Report Modes
-
-- **exon** (default): Report at exon level - each exon overlap is reported separately
-- **transcript**: Aggregate results by transcript
-- **gene**: Aggregate results by gene
+| Support | Option | Description | Default |
+|:-------:|:-------|:------------|:--------|
+| **Input** | `-g`, `--gtf` | Path to GTF annotation file (supports .gz) | Required |
+| **Input** | `-b`, `--bed` | Path to BED file with regions | Required |
+| **Output** | `-o`, `--output` | Output file path | Required |
+| **Mode** | `-r`, `--report` | Report level: `exon`, `transcript`, or `gene` | `exon` |
+| **Parallel**| `-j`, `--threads` | Number of worker threads | `8` |
+| **Config** | `-q`, `--distance`| Max distance (kb) for upstream/downstream | `10` |
+| **Config** | `-t`, `--tss` | TSS region size (bp) | `200` |
+| **Config** | `-s`, `--tts` | TTS region size (bp) | `0` |
+| **Config** | `-p`, `--promoter`| Promoter region size (bp) | `1300` |
+| **Filter** | `-v`, `--perc_area`| Min % of feature covered | `90` |
+| **Filter** | `-w`, `--perc_region`| Min % of region covered | `50` |
+| **Rules** | `-R`, `--rules` | Priority rules (comma-separated) | *See below* |
 
 ### Priority Rules
 
-The `--rules` option controls how annotations are prioritized when a region overlaps multiple features. Default order:
-
+The `--rules` flag controls the priority when a region overlaps multiple features.
+**Default Configuration:**
+```text
+TSS > 1st_EXON > GENE_BODY > PROMOTER > INTRON > TTS > UPSTREAM > DOWNSTREAM
 ```
-TSS,1st_EXON,GENE_BODY,PROMOTER,INTRON,TTS,UPSTREAM,DOWNSTREAM
-```
+You can customize this order, e.g., to prioritize Promoters over TSS:
+`-R PROMOTER,TSS,1st_EXON,...`
 
-### Examples
+### Output Format
+
+The output is a tab-separated file containing the original BED fields followed by `rgmatch` annotations:
+
+| Column | Description |
+|:-------|:------------|
+| `AREA` | Feature type (e.g., TSS, EXON, INTRON) |
+| `GENE` | Gene ID |
+| `TRANSCRIPT` | Transcript ID |
+| `EXON_NR` | Exon number(s) |
+| `STRAND` | Strand (`+` or `-`) |
+| `DISTANCE` | Distance to feature (0 if overlapping) |
+| `TSS_DISTANCE` | Distance to Transcription Start Site |
+| `PCTG_DHS` | Percentage of the input region covered |
+| `PCTG_AREA` | Percentage of the genomic feature covered |
+
+## Testing
+
+Run the comprehensive test suite to ensure correctness:
 
 ```bash
-# Basic annotation with default settings
-rgmatch -g gencode.v44.gtf.gz -b peaks.bed -o annotated.txt
-
-# Gene-level reporting with custom distance
-rgmatch -g gencode.v44.gtf.gz -b peaks.bed -o annotated.txt \
-    -r gene -q 50
-
-# Transcript-level with custom TSS/promoter regions
-rgmatch -g gencode.v44.gtf.gz -b peaks.bed -o annotated.txt \
-    -r transcript -t 500 -p 2000
-
-# Using more threads for large files
-rgmatch -g gencode.v44.gtf.gz -b peaks.bed -o annotated.txt -j 16
-```
-
-## Output Format
-
-The output is a tab-separated file with columns:
-
-1. Region coordinates and metadata (from BED file)
-2. `AREA` - Feature type (TSS, EXON, INTRON, etc.)
-3. `GENE` - Gene ID
-4. `TRANSCRIPT` - Transcript ID
-5. `EXON_NR` - Exon number(s)
-6. `STRAND` - Gene strand (+/-)
-7. `DISTANCE` - Distance to feature (0 if overlapping)
-8. `TSS_DISTANCE` - Distance to transcription start site
-9. `PCTG_DHS` - Percentage of region covered
-10. `PCTG_AREA` - Percentage of feature covered
-11. `EXON_LEN` - Exon length
-12. `REGION_LEN` - Region length
-
-## Running Tests
-
-```bash
-# Run library unit tests
-cargo test --lib
-
-# Run external unit tests
-cargo test --test unit_tests
-
-# Run all tests
+# Run all tests (library and integration)
 cargo test
 ```
 
-Note: Integration tests require large GTF files and are not included in the standard test suite.
+## Comparisons
 
-## Performance
+`rgmatch-rs` is designed to be a drop-in high-performance replacement for the original Python implementation.
 
-rgmatch-rs achieves significant speedups over the original Python implementation through:
-
-- Efficient memory layout with sorted gene indices
-- Binary search for region-gene matching
-- Parallel processing with configurable thread count
-- Streaming I/O for large files
+- **Speed**: significantly faster due to native compilation and parallelization.
+- **Memory**: Optimized to handle large datasets with low memory footprint using streaming.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
